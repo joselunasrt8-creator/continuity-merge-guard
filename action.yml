@@ -1,6 +1,6 @@
 name: 'ContinuityOS Merge Guard'
 description: >
-  Govern AI-generated pull requests before they merge. Builds a canonical
+  Smallest-release legitimacy check for a pull request: builds a canonical
   object-identity payload {repo, pr_number, head_sha, base_sha, actor} plus
   optional agent-authored workflow policy, hashes it, and emits VALID or NULL
   (fail-closed) plus a proof artifact. Designed to be added as a required

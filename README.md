@@ -59,6 +59,31 @@ jobs:
           actor: ${{ github.event.pull_request.user.login }}
 ```
 
+
+### Enforce as a required check
+
+After committing the workflow, configure branch protection to require the `merge-guard` job before merge. The action exits non-zero for `NULL`, so GitHub branch protection can use this job directly as the load-bearing required status check.
+
+### Read outputs in later steps
+
+```yaml
+      - uses: joselunasrt8-creator/continuity-merge-guard@v1
+        id: merge-guard
+        with:
+          repo: ${{ github.repository }}
+          pr-number: ${{ github.event.pull_request.number }}
+          head-sha: ${{ github.event.pull_request.head.sha }}
+          base-sha: ${{ github.event.pull_request.base.sha }}
+          actor: ${{ github.event.pull_request.user.login }}
+
+      - name: Show proof binding
+        if: always()
+        run: |
+          echo "result=${{ steps.merge-guard.outputs.result }}"
+          echo "proof_hash=${{ steps.merge-guard.outputs.proof_hash }}"
+          echo "null_reasons=${{ steps.merge-guard.outputs.null_reasons }}"
+```
+
 ## Agent-authored required lane
 
 For an agent-authored PR lane, make the check load-bearing by setting `require-agent-authored: 'true'` and providing the explicit `author-kind` value from the workflow policy:
