@@ -1,0 +1,121 @@
+name: 'ContinuityOS Merge Guard'
+description: >
+  Govern AI-generated pull requests before they merge. Builds a canonical
+  object-identity payload {repo, pr_number, head_sha, base_sha, actor} plus
+  optional agent-authored workflow policy, hashes it, and emits VALID or NULL
+  (fail-closed) plus a proof artifact. Designed to be added as a required
+  status check.
+
+inputs:
+  repo:
+    description: 'owner/repo'
+    required: true
+  pr-number:
+    description: 'Pull request number'
+    required: true
+  head-sha:
+    description: 'PR head commit SHA'
+    required: true
+  base-sha:
+    description: 'PR base commit SHA'
+    required: true
+  actor:
+    description: 'PR author / actor login'
+    required: true
+  author-kind:
+    description: "Explicit PR author classification: 'agent', 'human', or 'unknown'"
+    required: false
+    default: 'unknown'
+  require-agent-authored:
+    description: "Set to 'true' for an agent-authored PR workflow; non-agent PRs fail closed to NULL"
+    required: false
+    default: 'false'
+  pr-author:
+    description: 'PR author login (defaults to actor when omitted)'
+    required: false
+    default: ''
+  head-ref:
+    description: 'PR head branch name (heuristic agent-session signal, e.g. claude/*)'
+    required: false
+    default: ''
+  pr-body:
+    description: 'PR description; may carry an attribution metadata block (authoritative signal)'
+    required: false
+    default: ''
+  pr-labels:
+    description: "Comma/newline-separated PR labels (e.g. 'agent-authored'); authoritative signal"
+    required: false
+    default: ''
+  commit-trailers:
+    description: 'Newline-separated commit trailers (e.g. Agent-Authored-By: ...); authoritative signal'
+    required: false
+    default: ''
+  operator-id:
+    description: 'Optional human operator id behind an agent-authored PR'
+    required: false
+    default: ''
+
+outputs:
+  result:
+    description: 'VALID or NULL'
+    value: ${{ steps.merge-guard.outputs.result }}
+  proof_id:
+    description: 'Proof identifier bound to pr_number and head_sha'
+    value: ${{ steps.merge-guard.outputs.proof_id }}
+  proof_hash:
+    description: 'sha256 of the canonical payload'
+    value: ${{ steps.merge-guard.outputs.proof_hash }}
+  proof_url:
+    description: 'Path to the uploaded MERGE_GUARD_PROOF.json artifact'
+    value: ${{ steps.merge-guard.outputs.proof_url }}
+  author_kind:
+    description: "Normalized author classification: 'agent', 'human', or 'unknown'"
+    value: ${{ steps.merge-guard.outputs.author_kind }}
+  null_reasons:
+    description: 'Comma-separated NULL reason codes, empty when result is VALID'
+    value: ${{ steps.merge-guard.outputs.null_reasons }}
+  attribution_status:
+    description: "Agent Identity gate: 'identity_present', 'identity_missing', or 'identity_ambiguous'"
+    value: ${{ steps.merge-guard.outputs.attribution_status }}
+  attribution_classification:
+    description: 'Attribution class: AGENT_AUTHORED, AGENT_ASSISTED, HUMAN_AUTHORED, or UNKNOWN'
+    value: ${{ steps.merge-guard.outputs.attribution_classification }}
+  actor_kind:
+    description: "Normalized actor kind: 'human', 'agent', 'bot', or 'unknown'"
+    value: ${{ steps.merge-guard.outputs.actor_kind }}
+  attribution_evidence_hash:
+    description: 'sha256 of the canonicalized attribution evidence array'
+    value: ${{ steps.merge-guard.outputs.attribution_evidence_hash }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run legitimacy check
+      id: merge-guard
+      shell: bash
+      env:
+        MERGE_GUARD_REPO: ${{ inputs.repo }}
+        MERGE_GUARD_PR_NUMBER: ${{ inputs.pr-number }}
+        MERGE_GUARD_HEAD_SHA: ${{ inputs.head-sha }}
+        MERGE_GUARD_BASE_SHA: ${{ inputs.base-sha }}
+        MERGE_GUARD_ACTOR: ${{ inputs.actor }}
+        MERGE_GUARD_AUTHOR_KIND: ${{ inputs.author-kind }}
+        MERGE_GUARD_REQUIRE_AGENT_AUTHORED: ${{ inputs.require-agent-authored }}
+        MERGE_GUARD_PR_AUTHOR: ${{ inputs.pr-author }}
+        MERGE_GUARD_HEAD_REF: ${{ inputs.head-ref }}
+        MERGE_GUARD_PR_BODY: ${{ inputs.pr-body }}
+        MERGE_GUARD_PR_LABELS: ${{ inputs.pr-labels }}
+        MERGE_GUARD_COMMIT_TRAILERS: ${{ inputs.commit-trailers }}
+        MERGE_GUARD_OPERATOR_ID: ${{ inputs.operator-id }}
+      run: node "${{ github.action_path }}/check.mjs"
+    - name: Upload merge guard proof
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: MERGE_GUARD_PROOF
+        path: MERGE_GUARD_PROOF.json
+        if-no-files-found: ignore
+
+branding:
+  icon: shield
+  color: blue

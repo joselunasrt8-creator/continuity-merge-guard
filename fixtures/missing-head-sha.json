@@ -1,0 +1,17 @@
+{
+  "description": "missing head sha fails closed",
+  "input": {
+    "repo": "owner/repo",
+    "pr_number": "1970",
+    "head_sha": "",
+    "base_sha": "0123456789abcdef0123456789abcdef01234567",
+    "actor": "some-contributor"
+  },
+  "expected_result": "NULL",
+  "expected_missing_fields": ["head_sha"],
+  "expected_invalid_fields": [],
+  "expected_null_reasons": ["MISSING_REQUIRED_FIELD"],
+  "expected_attribution_status": "identity_missing",
+  "expected_actor_kind": "unknown",
+  "expected_attribution_classification": "UNKNOWN"
+}

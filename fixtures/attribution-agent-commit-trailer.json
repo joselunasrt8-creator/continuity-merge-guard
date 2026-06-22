@@ -1,0 +1,11 @@
+{
+  "description": "agent commit trailer records agent attribution",
+  "input": {"repo":"owner/repo","pr_number":"1970","head_sha":"a1b2c3d4e5f60718293a4b5c6d7e8f9012345678","base_sha":"0123456789abcdef0123456789abcdef01234567","actor":"some-agent","commit_trailers":"Agent-Authored-By: agent:claude"},
+  "expected_result": "VALID",
+  "expected_missing_fields": [],
+  "expected_invalid_fields": [],
+  "expected_null_reasons": [],
+  "expected_attribution_status": "identity_present",
+  "expected_actor_kind": "agent",
+  "expected_attribution_classification": "AGENT_AUTHORED"
+}
