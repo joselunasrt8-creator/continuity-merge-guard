@@ -69,9 +69,22 @@ Boundary statements:
 - Merge Guard does not determine whether reviewed code is correct or safe, and it does not replace CODEOWNERS, required reviewers, branch protection, GitHub review dismissal settings, or GitHub merge authority.
 - The action does not classify humans or agents from hidden platform authority.
 - The action does not bind the final merge commit.
-- It is an identity legitimacy check, not a review system or policy engine.
+- It is a deterministic merge-legitimacy validator, not a semantic code-review engine or final merge authority.
 
 ## Installation
+
+Choose the pinning form that matches your reproducibility requirement:
+
+```text
+@v1
+→ latest compatible v1 release
+@v1.0.0
+→ immutable exact release
+@commit-sha
+→ immutable validator source
+```
+
+The Marketplace convenience channel uses the moving `v1` tag:
 
 ```yaml
 name: ContinuityOS Merge Guard
@@ -241,4 +254,25 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the canonical enforcement
 
 ## Release Status
 
-This repository has been prepared for human review only. No release, tag, or Marketplace listing has been created.
+ContinuityOS Merge Guard is available through the GitHub Marketplace.
+
+Current release channels:
+
+- `v1` — moving major-version tag for the latest compatible v1 release
+- `v1.0.0` — exact-version tag intended to remain immutable under the repository release policy
+- commit SHA — immutable source pin for maximum reproducibility
+
+Recommended installation:
+
+```yaml
+uses: joselunasrt8-creator/continuity-merge-guard@v1
+```
+
+For reproducible installations, pin an exact semantic version or commit SHA:
+
+```yaml
+uses: joselunasrt8-creator/continuity-merge-guard@v1.0.0
+uses: joselunasrt8-creator/continuity-merge-guard@<full-commit-sha>
+```
+
+The moving `v1` tag may advance to newer backward-compatible v1 releases. Exact semantic-version tags are intended to remain immutable under the repository release policy, and commit SHAs should be treated as immutable source pins.
