@@ -20,7 +20,8 @@ Stable format: each release records semantic version, release date, source commi
 
 ## [1.0.0] - 2026-07-11
 
-- Source commit: see `release/RELEASE_MANIFEST.json` `source_commit` for the reproducible release commit recorded by the manifest builder.
+- Source commit: `b26c7c29b1f52ac78f6112f9b1a2f1180b00a600`
+- Release manifest: `release/manifests/v1.0.0.json`
 - Canonical algorithm version: `merge-guard-v1`
 - Proof schema version: `1.0.0`
 

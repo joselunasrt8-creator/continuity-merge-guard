@@ -227,6 +227,10 @@ function runNode(args) {
   return spawnSync(process.execPath, args, { encoding: 'utf8' })
 }
 
+function runGit(args) {
+  return spawnSync('git', args, { encoding: 'utf8' })
+}
+
 const manifestBefore = readFileSync(join(dir, 'release/RELEASE_MANIFEST.json'), 'utf8')
 const buildOnce = runNode(['scripts/build-release-manifest.mjs'])
 const manifestAfterFirst = readFileSync(join(dir, 'release/RELEASE_MANIFEST.json'), 'utf8')
@@ -290,6 +294,32 @@ const publishedReleaseMode = (() => {
       compatibility_range: '>=1.0.0 <2.0.0',
     }, null, 2) + '\n')
     writeFileSync(join(dir, 'CHANGELOG.md'), originalChangelog.replace('## [Unreleased]', '## [Unreleased]\n\n## [1.1.0] - 2026-07-11'))
+    runGit(['tag', '-f', 'v1.1.0', 'HEAD'])
+    const build = runNode(['scripts/build-release-manifest.mjs'])
+    if (build.status !== 0) return build
+    return runNode(['scripts/verify-release.mjs', '--published', '--tag=v1.1.0'])
+  } finally {
+    runGit(['tag', '-d', 'v1.1.0'])
+    writeFileSync(join(dir, 'release/validator-metadata.json'), originalMetadata)
+    writeFileSync(join(dir, 'CHANGELOG.md'), originalChangelog)
+    writeFileSync(join(dir, 'release/RELEASE_MANIFEST.json'), originalManifest)
+  }
+})()
+assertCase('release-verification-published-checkout-mode', publishedReleaseMode.status === 0, 'published release verification accepts complete non-development release metadata when explicitly requested')
+
+const publishedMissingTag = (() => {
+  const originalMetadata = readFileSync(join(dir, 'release/validator-metadata.json'), 'utf8')
+  const originalChangelog = readFileSync(join(dir, 'CHANGELOG.md'), 'utf8')
+  const originalManifest = readFileSync(join(dir, 'release/RELEASE_MANIFEST.json'), 'utf8')
+  try {
+    writeFileSync(join(dir, 'release/validator-metadata.json'), JSON.stringify({
+      validator_name: 'continuity-merge-guard',
+      validator_version: '1.1.0',
+      canonical_algorithm_version: 'merge-guard-v1',
+      proof_schema_version: '1.1.0',
+      compatibility_range: '>=1.0.0 <2.0.0',
+    }, null, 2) + '\n')
+    writeFileSync(join(dir, 'CHANGELOG.md'), originalChangelog.replace('## [Unreleased]', '## [Unreleased]\n\n## [1.1.0] - 2026-07-11'))
     const build = runNode(['scripts/build-release-manifest.mjs'])
     if (build.status !== 0) return build
     return runNode(['scripts/verify-release.mjs', '--published', '--tag=v1.1.0'])
@@ -299,7 +329,34 @@ const publishedReleaseMode = (() => {
     writeFileSync(join(dir, 'release/RELEASE_MANIFEST.json'), originalManifest)
   }
 })()
-assertCase('release-verification-published-checkout-mode', publishedReleaseMode.status === 0, 'published release verification accepts complete non-development release metadata when explicitly requested')
+assertCase('release-verification-published-requires-existing-tag', publishedMissingTag.status !== 0, 'published release verification rejects a missing exact tag')
+
+const publishedMismatchedTag = (() => {
+  const originalMetadata = readFileSync(join(dir, 'release/validator-metadata.json'), 'utf8')
+  const originalChangelog = readFileSync(join(dir, 'CHANGELOG.md'), 'utf8')
+  const originalManifest = readFileSync(join(dir, 'release/RELEASE_MANIFEST.json'), 'utf8')
+  try {
+    writeFileSync(join(dir, 'release/validator-metadata.json'), JSON.stringify({
+      validator_name: 'continuity-merge-guard',
+      validator_version: '1.1.0',
+      canonical_algorithm_version: 'merge-guard-v1',
+      proof_schema_version: '1.1.0',
+      compatibility_range: '>=1.0.0 <2.0.0',
+    }, null, 2) + '\n')
+    writeFileSync(join(dir, 'CHANGELOG.md'), originalChangelog.replace('## [Unreleased]', '## [Unreleased]\n\n## [1.1.0] - 2026-07-11'))
+    const build = runNode(['scripts/build-release-manifest.mjs'])
+    if (build.status !== 0) return build
+    runGit(['tag', '-f', 'v1.1.0', 'HEAD~1'])
+    return runNode(['scripts/verify-release.mjs', '--published', '--tag=v1.1.0'])
+  } finally {
+    runGit(['tag', '-d', 'v1.1.0'])
+    writeFileSync(join(dir, 'release/validator-metadata.json'), originalMetadata)
+    writeFileSync(join(dir, 'CHANGELOG.md'), originalChangelog)
+    writeFileSync(join(dir, 'release/RELEASE_MANIFEST.json'), originalManifest)
+  }
+})()
+assertCase('release-verification-published-rejects-tag-source-mismatch', publishedMismatchedTag.status !== 0, 'published release verification rejects tag target mismatch with manifest source_commit')
+
 
 
 const malformedMetadata = withRestoredFile('release/validator-metadata.json', original => original.replace('"validator_name"', '"validator_name_broken"'), () => runNode(['scripts/verify-release.mjs']))

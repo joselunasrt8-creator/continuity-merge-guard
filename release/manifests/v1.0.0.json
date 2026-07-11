@@ -1,7 +1,8 @@
 {
   "manifest_version": "1.0.0",
-  "source_commit": "development",
-  "release_hash": "sha256:651f4df000c7578db66b08f0e32dd2b3d20e04a425034bab9922b9d6400829a0",
+  "release": "v1.0.0",
+  "source_commit": "b26c7c29b1f52ac78f6112f9b1a2f1180b00a600",
+  "release_hash": "sha256:3df20007f52a364101b9a9998ac88f0a4602f506e5d72ab591f489d79af881e7",
   "files": [
     {
       "path": "action.yml",
@@ -97,15 +98,11 @@
     },
     {
       "path": "guard.mjs",
-      "sha256": "a941e88160e09c1b01dd1b6d6d0bb3241f7285ebdf3e84f2fbe6ec3b2acb03d7"
-    },
-    {
-      "path": "release/validator-metadata.json",
-      "sha256": "328a736a61bc8d149fc0405800a1c95ee9de86a252ef1bf09c24265ef00d6b45"
+      "sha256": "e655f67d8082f9fe3835376066ec2e13d6e32b0a5cbec9257eb57ef33d9d855a"
     },
     {
       "path": "test.mjs",
-      "sha256": "448d253b8417354840e57eebc8e88f36495d5696f462294ae50e65b3cb1a8d02"
+      "sha256": "7289542698a44dec14e7caf57d3d0e3968e675e9489ff87f217cc6de3afdf8c1"
     }
   ]
 }

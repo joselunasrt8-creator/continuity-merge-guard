@@ -51,6 +51,13 @@ for (const entry of manifest.files) {
 const aggregate = `sha256:${sha256(JSON.stringify({ files: manifest.files }))}`
 if (aggregate !== manifest.release_hash) fail(`aggregate release hash differs: ${aggregate} !== ${manifest.release_hash}`)
 
+if (published) {
+  const target = tagTarget(tag)
+  if (manifest.source_commit !== target) {
+    fail(`manifest source_commit ${manifest.source_commit} does not match ${tag} target ${target}`)
+  }
+}
+
 if (majorTag || expectedMajorTarget) {
   if (!published) fail('major tag verification is only valid in --published mode')
   if (!majorTag || !expectedMajorTarget) fail('major tag verification requires --major-tag and --expected-major-target')
