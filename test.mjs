@@ -214,3 +214,58 @@ const total = passCount + failCount
 console.log(`\nTotal: ${total} | PASS: ${passCount} | FAIL: ${failCount}`)
 if (failCount > 0) process.exitCode = 1
 else console.log('MERGE_GUARD_CONFORMANCE_COMPLETE')
+
+console.log('\n=== Review evidence binding tests ===\n')
+const reviewEvidence = (head, reviews) => ({ head_sha: head, reviews })
+const approval = (reviewer, commit_id = baseInput.head_sha, submitted_at = '2026-01-01T00:00:00Z', state = 'APPROVED') => ({ reviewer, state, submitted_at, commit_id })
+const reviewBase = { ...baseInput, require_review_approval: 'true', minimum_approvals: '1' }
+
+const disabled = validateMergeGuard({ ...baseInput, require_review_approval: 'false' })
+assertCase('review-disabled-preserves-valid', disabled.result === 'VALID' && disabled.review_status === 'not_required' && !('review_policy' in disabled.canonical_payload), 'review policy disabled preserves existing VALID behavior')
+
+const validReview = validateMergeGuard({ ...reviewBase, review_evidence: reviewEvidence(baseInput.head_sha, [approval('alice')]) })
+assertCase('review-valid-current-head-approval', validReview.result === 'VALID' && validReview.approval_count === 1 && validReview.review_head_sha === baseInput.head_sha && validReview.review_evidence_hash?.startsWith('sha256:'), 'one current-head approval satisfies review binding')
+
+const missingReview = validateMergeGuard(reviewBase)
+assertCase('review-required-missing', missingReview.result === 'NULL' && missingReview.null_reasons.includes('REVIEW_EVIDENCE_MISSING'), 'missing required review evidence returns NULL')
+
+const staleHead = validateMergeGuard({ ...reviewBase, review_evidence: reviewEvidence('cccccccccccccccccccccccccccccccccccccccc', [approval('alice', 'cccccccccccccccccccccccccccccccccccccccc')]) })
+assertCase('review-stale-head-evidence', staleHead.result === 'NULL' && staleHead.null_reasons.includes('REVIEW_HEAD_SHA_MISMATCH'), 'evidence bound to stale head SHA returns NULL')
+
+const oldCommitReview = validateMergeGuard({ ...reviewBase, review_evidence: reviewEvidence(baseInput.head_sha, [approval('alice', 'cccccccccccccccccccccccccccccccccccccccc')]) })
+assertCase('review-new-commit-invalidates-approval', oldCommitReview.result === 'NULL' && oldCommitReview.null_reasons.includes('REVIEW_STALE') && oldCommitReview.null_reasons.includes('INSUFFICIENT_APPROVALS'), 'approval attached to older commit cannot satisfy current head')
+
+const dismissed = validateMergeGuard({ ...reviewBase, review_evidence: reviewEvidence(baseInput.head_sha, [approval('alice', baseInput.head_sha, '2026-01-01T00:00:00Z', 'DISMISSED')]) })
+assertCase('review-dismissed-approval', dismissed.result === 'NULL' && dismissed.null_reasons.includes('REVIEW_DISMISSED'), 'dismissed latest review returns NULL')
+
+const changesAfterApproval = validateMergeGuard({ ...reviewBase, review_evidence: reviewEvidence(baseInput.head_sha, [approval('alice'), approval('alice', baseInput.head_sha, '2026-01-02T00:00:00Z', 'CHANGES_REQUESTED')]) })
+assertCase('review-changes-requested-after-approval', changesAfterApproval.result === 'NULL' && changesAfterApproval.null_reasons.includes('REVIEW_CONFLICT') && changesAfterApproval.approval_count === 0, 'later changes-requested review supersedes approval')
+
+const conflicting = validateMergeGuard({ ...reviewBase, review_evidence: reviewEvidence(baseInput.head_sha, [approval('alice', baseInput.head_sha, '2026-01-01T00:00:00Z', 'APPROVED'), approval('alice', baseInput.head_sha, '2026-01-01T00:00:00Z', 'CHANGES_REQUESTED')]) })
+assertCase('review-conflicting-evidence', conflicting.result === 'NULL' && conflicting.null_reasons.includes('REVIEW_CONFLICT'), 'ambiguous same-reviewer same-time states return NULL')
+
+const insufficient = validateMergeGuard({ ...reviewBase, minimum_approvals: '2', review_evidence: reviewEvidence(baseInput.head_sha, [approval('alice')]) })
+assertCase('review-insufficient-approval-count', insufficient.result === 'NULL' && insufficient.null_reasons.includes('INSUFFICIENT_APPROVALS'), 'minimum approvals are enforced')
+
+const duplicate = validateMergeGuard({ ...reviewBase, review_evidence: reviewEvidence(baseInput.head_sha, [approval('alice'), approval('alice', baseInput.head_sha, '2026-01-02T00:00:00Z')]) })
+assertCase('review-duplicate-reviewer-latest-only', duplicate.result === 'VALID' && duplicate.approval_count === 1, 'duplicate reviews by one reviewer count once using the latest review')
+
+const orderA = validateMergeGuard({ ...reviewBase, review_evidence: reviewEvidence(baseInput.head_sha, [approval('bob'), approval('alice')]) })
+const orderB = validateMergeGuard({ ...reviewBase, review_evidence: reviewEvidence(baseInput.head_sha, [approval('alice'), approval('bob')]) })
+assertCase('review-deterministic-ordering-equivalent', orderA.review_evidence_hash === orderB.review_evidence_hash && orderA.canonical_hash === orderB.canonical_hash, 'equivalent review evidence ordering canonicalizes deterministically')
+
+const malformed = validateMergeGuard({ ...reviewBase, review_evidence: '{nope' })
+assertCase('review-malformed-evidence', malformed.result === 'NULL' && malformed.null_reasons.includes('REVIEW_EVIDENCE_MALFORMED'), 'malformed review evidence returns NULL')
+
+const changedReviewEvidence = validateMergeGuard({ ...reviewBase, review_evidence: reviewEvidence(baseInput.head_sha, [approval('alice'), approval('bob')]), expected_review_evidence_hash: validReview.review_evidence_hash })
+assertCase('review-replay-old-hash-changed-evidence', changedReviewEvidence.result === 'NULL' && changedReviewEvidence.null_reasons.includes('REVIEW_EVIDENCE_HASH_MISMATCH'), 'old review evidence hash cannot replay against changed evidence')
+
+const reviewProof = proofFromDecision(validReview)
+assertCase('review-proof-from-decision-exactness', reviewProof.review_required === true && reviewProof.minimum_approvals === 1 && reviewProof.approval_count === 1 && reviewProof.review_evidence_hash === validReview.review_evidence_hash && !('review_evidence' in reviewProof), 'review proof projection is derived from the canonical decision only')
+
+const reviewCompatibility = evaluate({ ...reviewBase, review_evidence: reviewEvidence(baseInput.head_sha, [approval('alice')]) })
+assertCase('review-evaluate-alias-matches-validate', reviewCompatibility.canonical_hash === validReview.canonical_hash && reviewCompatibility.result === validReview.result, 'evaluate compatibility alias still matches validateMergeGuard with review evidence')
+
+const reviewTotal = passCount + failCount
+console.log(`\nReview-inclusive Total: ${reviewTotal} | PASS: ${passCount} | FAIL: ${failCount}`)
+if (failCount > 0) process.exitCode = 1

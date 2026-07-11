@@ -1,0 +1,15 @@
+{
+  "description": "required review approval fails closed when evidence is missing",
+  "input": {
+    "repo": "owner/repo",
+    "pr_number": "33",
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "actor": "reviewed-contributor",
+    "require_review_approval": "true",
+    "minimum_approvals": "1"
+  },
+  "expected_result": "NULL",
+  "expected_missing_fields": [],
+  "expected_null_reasons": ["REVIEW_EVIDENCE_MISSING"]
+}

@@ -14,6 +14,7 @@ PR
 Canonical PR Identity
 + Canonical PR Diff
 + Explicit Author Policy
++ Optional Review Approval Evidence
 ↓
 Canonicalization
 ↓
@@ -43,7 +44,7 @@ This action owns:
 
 This action does not own:
 
-- code review
+- code review quality judgments
 - security analysis
 - CI validation
 - repository approval policy
@@ -54,18 +55,18 @@ Merge Guard validates identity and the exact textual patch it evaluated. Final m
 
 ## What this proves
 
-This proves the PR identity object, exact canonical diff, explicit author-policy scope, diff provenance, and normalized attribution evidence are complete, canonicalized, hashed, and proof-bound before merge eligibility:
+This proves the PR identity object, exact canonical diff, explicit author-policy scope, diff provenance, normalized attribution evidence, and when enabled normalized review evidence are complete, canonicalized, hashed, and proof-bound before merge eligibility:
 
 ```text
 validated_object == merge_guard_object
-validated_diff == merged_diff
+validated_diff == diff_bound_to_validated_head_sha
 ```
 
 Boundary statements:
 
-- Diff binding proves which textual patch was evaluated. It does not prove that the patch is correct, safe, reviewed, or approved.
-- Review binding remains a separate concern under Issue #33.
-- The action does not validate review approvals.
+- Diff binding proves which textual patch was evaluated. It does not prove that the patch is correct or safe.
+- When review binding is enabled, Merge Guard can verify that normalized review evidence was bound to the validated head SHA: `reviewed_head_sha == validated_head_sha`.
+- Merge Guard does not determine whether reviewed code is correct or safe, and it does not replace CODEOWNERS, required reviewers, branch protection, GitHub review dismissal settings, or GitHub merge authority.
 - The action does not classify humans or agents from hidden platform authority.
 - The action does not bind the final merge commit.
 - It is an identity legitimacy check, not a review system or policy engine.
@@ -132,6 +133,9 @@ Each run produces:
 | `attribution_classification` | `AGENT_AUTHORED`, `AGENT_ASSISTED`, `HUMAN_AUTHORED`, or `UNKNOWN` |
 | `actor_kind` | normalized actor kind `human`, `agent`, `bot`, or `unknown` |
 | `attribution_evidence_hash` | sha256 of the canonicalized attribution evidence |
+| `review_status` | Review binding status derived from the canonical decision |
+| `review_evidence_hash` | sha256 of canonical normalized review evidence when review binding is enabled |
+| `approval_count` | Count of distinct latest approvals bound to the validated head SHA |
 
 The proof is written to the job step summary and uploaded as a workflow artifact named `MERGE_GUARD_PROOF`.
 
@@ -156,7 +160,43 @@ The `diff_hash` is computed from canonical diff bytes using these deterministic 
 - patch text, paths, hunk headers, context lines, additions, deletions, mode lines, index lines, rename/copy metadata, and binary patch markers are preserved;
 - no semantic equivalence is inferred between different textual patches.
 
-Merge Guard fails closed to `NULL` when diff acquisition fails, the diff is missing or malformed, the fetched pull-request head/base SHA does not match the evaluated inputs, a supplied prior diff/proof hash no longer matches the current canonical object, or a post-validation object mutation is detected. Workflows can pass `expected-diff-hash`, `expected-proof-hash`, and `expected-validated-object-hash` when replaying or reconciling a prior proof; all three checks are enforced by the same canonical validation function. Diff provenance is intentionally bound into the proof hash: identical diff text keeps the same `diff_hash`, but different `diff_source` values produce different `proof_hash` values. Attribution is also decision-critical proof evidence; normalized attribution status, classification, and evidence hash are included in the canonical payload so changed attribution evidence changes proof identity.
+Merge Guard fails closed to `NULL` when diff acquisition fails, the diff is missing or malformed, the fetched pull-request head/base SHA does not match the evaluated inputs, a supplied prior diff/proof hash no longer matches the current canonical object, or a post-validation object mutation is detected. Workflows can pass `expected-diff-hash`, `expected-proof-hash`, `expected-review-evidence-hash`, and `expected-validated-object-hash` when replaying or reconciling a prior proof; all three checks are enforced by the same canonical validation function. Diff provenance is intentionally bound into the proof hash: identical diff text keeps the same `diff_hash`, but different `diff_source` values produce different `proof_hash` values. Attribution is also decision-critical proof evidence; normalized attribution status, classification, and evidence hash are included in the canonical payload so changed attribution evidence changes proof identity.
+
+
+## Optional review approval binding
+
+Review approval binding is disabled by default (`require-review-approval: 'false'`) to preserve existing behavior. When enabled, callers may pass one structured `review-evidence` JSON object or allow `check.mjs` to acquire reviews from GitHub before deterministic validation. Network acquisition is outside the validation boundary; normalized evidence is then passed to `validateMergeGuard(input)`. Acquisition failure fails closed.
+
+Minimal review evidence shape:
+
+```json
+{
+  "head_sha": "...",
+  "reviews": [
+    {
+      "reviewer": "alice",
+      "state": "APPROVED",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "commit_id": "..."
+    }
+  ]
+}
+```
+
+Merge Guard normalizes only review fields needed for legitimacy, sorts records deterministically, computes `review_evidence_hash`, and binds the review policy/result into the canonical decision when review binding is enabled. Deterministic review semantics are fail-closed: comments, reactions, labels, and heuristic metadata never count as approval; duplicate reviews by one reviewer count only the latest review; later `CHANGES_REQUESTED` supersedes approval; `DISMISSED`, stale-head, malformed, missing, conflicting, or insufficient evidence returns `NULL`.
+
+Required invariant when enabled:
+
+```text
+reviewed_head_sha == validated_head_sha
+```
+
+Example:
+
+```yaml
+          require-review-approval: 'true'
+          minimum-approvals: '1'
+```
 
 ## Read outputs in later steps
 

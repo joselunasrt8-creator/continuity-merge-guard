@@ -34,12 +34,12 @@
 - Runtime: Node.js on the GitHub-hosted runner.
 - Action dependency: `actions/upload-artifact@v4` for `MERGE_GUARD_PROOF` artifact upload.
 - No npm package install, package manager, compiled `dist`, or external network dependency is required by the action logic.
-- The action uses the GitHub REST API only to fetch pull-request JSON and the exact GitHub pull-request diff when a caller does not provide `pr-diff`; unavailable or mismatched diff provenance fails closed to `NULL`.
+- The action uses the GitHub REST API only to fetch pull-request JSON, the exact GitHub pull-request diff when a caller does not provide `pr-diff`, and pull-request reviews when `require-review-approval` is true and `review-evidence` is omitted; unavailable or mismatched diff/review provenance fails closed to `NULL`.
 
 ## Verification
 
 - Canonical source path located in the public repository browser view at `joselunasrt8-creator/ContinuityOS-/actions/continuity-merge-guard/`.
-- Runtime files reconciled to a single canonical Node validation implementation (`guard.mjs`) with `check.mjs` limited to runtime adaptation, diff acquisition, proof emission, and GitHub outputs.
+- Runtime files reconciled to a single canonical Node validation implementation (`guard.mjs`) with `check.mjs` limited to runtime adaptation, diff/review acquisition, proof emission, and GitHub outputs.
 - Tests run locally:
   - `ruby -e 'require "yaml"; data=YAML.load_file("action.yml"); raise unless data["runs"]["using"] == "composite"; raise unless data["name"] == "ContinuityOS Merge Guard"'`
   - `node --check check.mjs`
@@ -53,5 +53,5 @@
 
 - Duplicate Merge Guard decision logic was consolidated into `guard.mjs`; `evaluate` remains only as a compatibility alias.
 - The proof object is projected by `proofFromDecision()` so proof emission cannot diverge from validation output.
-- Diff provenance and attribution evidence semantics are now explicitly bound and documented: `diff_source` affects proof identity, and attribution status/classification/evidence hash are included in the canonical payload.
+- Diff provenance, attribution evidence, and optional review evidence semantics are explicitly bound and documented: `diff_source` affects proof identity, attribution status/classification/evidence hash are included in the canonical payload, and review policy/result/evidence hash are included when review binding is enabled.
 - No obsolete shell runtime, package manager artifacts, or compiled distribution files are present in this standalone action package.
