@@ -57,6 +57,18 @@ inputs:
     description: 'GitHub token used to fetch the pull request JSON and canonical diff when pr-diff is omitted.'
     required: false
     default: ${{ github.token }}
+  expected-diff-hash:
+    description: 'Optional prior sha256 diff hash. When supplied, the current canonical diff must match it.'
+    required: false
+    default: ''
+  expected-proof-hash:
+    description: 'Optional prior proof hash. When supplied, the current canonical validated object must match it.'
+    required: false
+    default: ''
+  expected-validated-object-hash:
+    description: 'Optional exact-object continuity hash. When supplied, post-validation object mutation fails closed.'
+    required: false
+    default: ''
 
 outputs:
   result:
@@ -115,6 +127,9 @@ runs:
         MERGE_GUARD_OPERATOR_ID: ${{ inputs.operator-id }}
         MERGE_GUARD_PR_DIFF: ${{ inputs.pr-diff }}
         MERGE_GUARD_GITHUB_TOKEN: ${{ inputs.github-token }}
+        MERGE_GUARD_EXPECTED_DIFF_HASH: ${{ inputs.expected-diff-hash }}
+        MERGE_GUARD_EXPECTED_PROOF_HASH: ${{ inputs.expected-proof-hash }}
+        MERGE_GUARD_EXPECTED_VALIDATED_OBJECT_HASH: ${{ inputs.expected-validated-object-hash }}
       run: node "${{ github.action_path }}/check.mjs"
     - name: Upload merge guard proof
       if: always()

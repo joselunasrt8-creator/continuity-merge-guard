@@ -12,7 +12,8 @@
 | Standalone path | Canonical source path | Purpose |
 | --- | --- | --- |
 | `action.yml` | `actions/continuity-merge-guard/action.yml` | Root GitHub Action metadata for Marketplace discovery and action execution. |
-| `check.mjs` | `actions/continuity-merge-guard/check.mjs` | Canonical Merge Guard decision logic, pull-request diff acquisition, proof artifact writer, outputs, and fail-closed CLI entrypoint. |
+| `check.mjs` | `actions/continuity-merge-guard/check.mjs` | Runtime adapter, pull-request diff acquisition, proof artifact writer, outputs, and fail-closed CLI entrypoint. |
+| `guard.mjs` | New canonical enforcement module | Single canonical Merge Guard validation implementation and proof projection used by CLI, action, tests, and library imports. |
 | `canonical.mjs` | `actions/continuity-merge-guard/canonical.mjs` | Deterministic JSON canonicalization, canonical diff normalization, and SHA-256 implementation. |
 | `attribution.mjs` | `actions/continuity-merge-guard/attribution.mjs` | Canonical Agent Identity attribution metadata classification. |
 | `test.mjs` | `actions/continuity-merge-guard/test.mjs` | Canonical fixture-based conformance test harness. |
@@ -38,11 +39,19 @@
 ## Verification
 
 - Canonical source path located in the public repository browser view at `joselunasrt8-creator/ContinuityOS-/actions/continuity-merge-guard/`.
-- Runtime files reconciled to the canonical Node implementation (`check.mjs`, `canonical.mjs`, `attribution.mjs`) instead of the previous shell reimplementation.
+- Runtime files reconciled to a single canonical Node validation implementation (`guard.mjs`) with `check.mjs` limited to runtime adaptation, diff acquisition, proof emission, and GitHub outputs.
 - Tests run locally:
   - `ruby -e 'require "yaml"; data=YAML.load_file("action.yml"); raise unless data["runs"]["using"] == "composite"; raise unless data["name"] == "ContinuityOS Merge Guard"'`
   - `node --check check.mjs`
   - `node --check canonical.mjs`
   - `node --check attribution.mjs`
+  - `node --check guard.mjs`
   - `node test.mjs`
   - root action CLI smoke checks for `VALID` and `NULL` paths.
+
+## Repository audit notes
+
+- Duplicate Merge Guard decision logic was consolidated into `guard.mjs`; `evaluate` remains only as a compatibility alias.
+- The proof object is projected by `proofFromDecision()` so proof emission cannot diverge from validation output.
+- Diff provenance and attribution evidence semantics are now explicitly bound and documented: `diff_source` affects proof identity, and attribution status/classification/evidence hash are included in the canonical payload.
+- No obsolete shell runtime, package manager artifacts, or compiled distribution files are present in this standalone action package.

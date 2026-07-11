@@ -54,7 +54,7 @@ Merge Guard validates identity and the exact textual patch it evaluated. Final m
 
 ## What this proves
 
-This proves the PR identity object, exact canonical diff, and explicit author-policy scope are complete, canonicalized, hashed, and proof-bound before merge eligibility:
+This proves the PR identity object, exact canonical diff, explicit author-policy scope, diff provenance, and normalized attribution evidence are complete, canonicalized, hashed, and proof-bound before merge eligibility:
 
 ```text
 validated_object == merge_guard_object
@@ -102,21 +102,18 @@ After committing the workflow, configure branch protection to require the `merge
 ## Runtime
 
 ```text
-Pull Request
+Pull Request / CLI Environment / Test Fixture
         ↓
-Canonical Identity
-+ Canonical Diff
+Input Acquisition
         ↓
-Validation
+validateMergeGuard(input)
         ↓
-VALID / NULL
+proofFromDecision(decision)
         ↓
-Proof
-        ↓
-GitHub Status Check
+MERGE_GUARD_PROOF.json + GitHub Outputs + Status Check
 ```
 
-The action evaluates canonical pull request identity, emits a proof artifact, and exposes a deterministic status check for branch protection.
+All repository-local Merge Guard validation entrypoints use the same canonical validation flow in `guard.mjs`. `check.mjs` is the runtime adapter: it acquires inputs, optionally fetches the GitHub diff, delegates validation to `validateMergeGuard(input)`, derives the proof with `proofFromDecision(decision)`, and exits non-zero when the canonical result is `NULL`.
 
 ## Output
 
@@ -159,7 +156,7 @@ The `diff_hash` is computed from canonical diff bytes using these deterministic 
 - patch text, paths, hunk headers, context lines, additions, deletions, mode lines, index lines, rename/copy metadata, and binary patch markers are preserved;
 - no semantic equivalence is inferred between different textual patches.
 
-Merge Guard fails closed to `NULL` when diff acquisition fails, the diff is missing or malformed, the fetched pull-request head/base SHA does not match the evaluated inputs, a supplied prior proof hash no longer matches the current canonical object, or a post-validation object mutation is detected.
+Merge Guard fails closed to `NULL` when diff acquisition fails, the diff is missing or malformed, the fetched pull-request head/base SHA does not match the evaluated inputs, a supplied prior diff/proof hash no longer matches the current canonical object, or a post-validation object mutation is detected. Workflows can pass `expected-diff-hash`, `expected-proof-hash`, and `expected-validated-object-hash` when replaying or reconciling a prior proof; all three checks are enforced by the same canonical validation function. Diff provenance is intentionally bound into the proof hash: identical diff text keeps the same `diff_hash`, but different `diff_source` values produce different `proof_hash` values. Attribution is also decision-critical proof evidence; normalized attribution status, classification, and evidence hash are included in the canonical payload so changed attribution evidence changes proof identity.
 
 ## Read outputs in later steps
 
@@ -200,7 +197,7 @@ For an agent-authored PR lane, make the check load-bearing by setting `require-a
 
 ## File manifest and verification
 
-See [`docs/FILE_MANIFEST.md`](docs/FILE_MANIFEST.md) for the complete file manifest, intentional root-packaging adaptations, canonical source reference, and verification notes.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the canonical enforcement flow and sequence diagram. See [`docs/FILE_MANIFEST.md`](docs/FILE_MANIFEST.md) for the complete file manifest, intentional root-packaging adaptations, canonical source reference, and verification notes.
 
 ## Release Status
 

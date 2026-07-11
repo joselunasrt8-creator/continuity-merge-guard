@@ -7,6 +7,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { evaluate } from './check.mjs'
+import { proofFromDecision, validateMergeGuard } from './guard.mjs'
 
 const dir = dirname(fileURLToPath(import.meta.url))
 const fixturesDir = join(dir, 'fixtures')
@@ -142,6 +143,33 @@ const deletedFileDiff = [
   '-goodbye',
   '',
 ].join('\n')
+
+
+const canonicalEntry = validateMergeGuard(baseInput)
+const compatibilityEntry = evaluate(baseInput)
+assertCase('canonical-entrypoint-compatibility', canonicalEntry.canonical_hash === compatibilityEntry.canonical_hash && canonicalEntry.result === compatibilityEntry.result, 'legacy evaluate export delegates to canonical validateMergeGuard path')
+
+
+const differentSource = validateMergeGuard({ ...baseInput, diff_source: 'alternate_provenance' })
+assertCase('canonical-diff-source-bound-to-proof', differentSource.diff_hash === canonicalEntry.diff_hash && differentSource.canonical_hash !== canonicalEntry.canonical_hash, 'same diff text with different provenance keeps diff hash but changes proof hash')
+
+const humanAttribution = validateMergeGuard({ ...baseInput, pr_labels: 'human-authored' })
+assertCase('canonical-attribution-bound-to-proof', humanAttribution.result === 'VALID' && humanAttribution.canonical_hash !== canonicalEntry.canonical_hash && humanAttribution.attribution_evidence_hash !== canonicalEntry.attribution_evidence_hash, 'attribution evidence changes canonical proof identity')
+
+const proof = proofFromDecision(canonicalEntry)
+assertCase('canonical-proof-object-exactness', proof.canonical_hash === canonicalEntry.canonical_hash && proof.record_type === 'MERGE_GUARD_PROOF' && !('github_token' in proof), 'proof object is derived from canonical decision without runtime-only inputs')
+
+const expectedProofAccepted = validateMergeGuard({ ...baseInput, expected_proof_hash: canonicalEntry.canonical_hash, expected_validated_object_hash: canonicalEntry.canonical_hash })
+assertCase('canonical-expected-proof-success', expectedProofAccepted.result === 'VALID', 'current proof and validated-object hashes are accepted')
+
+const invalidPolicyBoth = validateMergeGuard({ ...baseInput, author_kind: 'robot', require_agent_authored: 'yes' })
+assertCase('canonical-invalid-policy-fields', invalidPolicyBoth.result === 'NULL' && invalidPolicyBoth.invalid_fields.join(',') === 'author_kind,require_agent_authored' && invalidPolicyBoth.null_reasons.includes('INVALID_POLICY_FIELD'), 'invalid policy inputs fail through canonical validation')
+
+const mismatchedBase = validateMergeGuard({ ...baseInput, evaluated_base_sha: 'dddddddddddddddddddddddddddddddddddddddd' })
+assertCase('canonical-base-sha-mismatch', mismatchedBase.result === 'NULL' && mismatchedBase.null_reasons.includes('BASE_SHA_MISMATCH'), 'evaluated base SHA mismatch fails closed')
+
+const tamperedDiff = validateMergeGuard({ ...baseInput, expected_diff_hash: canonicalEntry.diff_hash, pr_diff: changedLineDiff })
+assertCase('canonical-replay-tampered-diff', tamperedDiff.result === 'NULL' && tamperedDiff.null_reasons.includes('DIFF_HASH_MISMATCH'), 'replayed validation rejects tampered diff with old diff hash')
 
 const sameA = evaluate(baseInput)
 const sameB = evaluate({ ...baseInput })
