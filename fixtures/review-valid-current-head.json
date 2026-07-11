@@ -1,0 +1,26 @@
+{
+  "description": "review approval bound to current head is valid",
+  "input": {
+    "repo": "owner/repo",
+    "pr_number": "33",
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "actor": "reviewed-contributor",
+    "require_review_approval": "true",
+    "minimum_approvals": "1",
+    "review_evidence": {
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reviews": [
+        {
+          "reviewer": "alice",
+          "state": "APPROVED",
+          "submitted_at": "2026-01-01T00:00:00Z",
+          "commit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    }
+  },
+  "expected_result": "VALID",
+  "expected_missing_fields": [],
+  "expected_null_reasons": []
+}

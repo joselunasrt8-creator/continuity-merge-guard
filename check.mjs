@@ -5,7 +5,7 @@
 
 import { writeFileSync, appendFileSync } from 'node:fs'
 import { canonicalize, sha256Hex, diffHash } from './canonical.mjs'
-import { normalizeString, proofFromDecision, validateMergeGuard } from './guard.mjs'
+import { normalizeReviewEvidence, normalizeString, proofFromDecision, validateMergeGuard } from './guard.mjs'
 
 export { canonicalize, sha256Hex, diffHash, validateMergeGuard }
 export const evaluate = validateMergeGuard
@@ -52,6 +52,56 @@ export async function acquirePullRequestDiff(input) {
   }
 }
 
+
+function nextPageUrl(linkHeader) {
+  const links = normalizeString(linkHeader).split(',')
+  for (const link of links) {
+    const match = link.match(/<([^>]+)>;\s*rel=\"next\"/)
+    if (match) return match[1]
+  }
+  return ''
+}
+
+export async function acquireReviewEvidence(input) {
+  const repo = normalizeString(input.repo)
+  const pr_number = normalizeString(input.pr_number)
+  const token = normalizeString(input.github_token)
+  const apiUrl = normalizeString(input.github_api_url) || 'https://api.github.com'
+  if (!repo || !pr_number || !token) return { ok: false, reason: 'REVIEW_ACQUISITION_FAILED', review_evidence: '' }
+  let reviewsUrl = `${apiUrl.replace(/\/$/, '')}/repos/${repo}/pulls/${pr_number}/reviews?per_page=100`
+  const headers = {
+    accept: 'application/vnd.github+json',
+    authorization: `Bearer ${token}`,
+    'user-agent': 'continuity-merge-guard',
+    'x-github-api-version': '2022-11-28',
+  }
+  try {
+    const data = []
+    while (reviewsUrl) {
+      const res = await fetch(reviewsUrl, { headers })
+      if (!res.ok) return { ok: false, reason: 'REVIEW_ACQUISITION_FAILED', review_evidence: '' }
+      const page = await res.json()
+      if (!Array.isArray(page)) return { ok: false, reason: 'REVIEW_ACQUISITION_FAILED', review_evidence: '' }
+      data.push(...page)
+      reviewsUrl = nextPageUrl(res.headers?.get?.('link'))
+    }
+    const review_evidence = {
+      head_sha: normalizeString(input.head_sha),
+      reviews: data.map(r => ({
+        reviewer: normalizeString(r?.user?.login),
+        state: normalizeString(r?.state).toUpperCase(),
+        submitted_at: normalizeString(r?.submitted_at),
+        commit_id: normalizeString(r?.commit_id),
+      })),
+    }
+    const normalized = normalizeReviewEvidence(review_evidence)
+    if (!normalized.ok) return { ok: false, reason: 'REVIEW_ACQUISITION_FAILED', review_evidence: '' }
+    return { ok: true, reason: null, review_evidence: JSON.stringify(normalized.evidence) }
+  } catch {
+    return { ok: false, reason: 'REVIEW_ACQUISITION_FAILED', review_evidence: '' }
+  }
+}
+
 async function main() {
   const input = {
     repo: process.env.MERGE_GUARD_REPO || '',
@@ -74,6 +124,10 @@ async function main() {
     expected_diff_hash: process.env.MERGE_GUARD_EXPECTED_DIFF_HASH || '',
     expected_proof_hash: process.env.MERGE_GUARD_EXPECTED_PROOF_HASH || '',
     expected_validated_object_hash: process.env.MERGE_GUARD_EXPECTED_VALIDATED_OBJECT_HASH || '',
+    require_review_approval: process.env.MERGE_GUARD_REQUIRE_REVIEW_APPROVAL || '',
+    minimum_approvals: process.env.MERGE_GUARD_MINIMUM_APPROVALS || '',
+    review_evidence: process.env.MERGE_GUARD_REVIEW_EVIDENCE || '',
+    expected_review_evidence_hash: process.env.MERGE_GUARD_EXPECTED_REVIEW_EVIDENCE_HASH || '',
   }
   if (!input.pr_diff) {
     const acquired = await acquirePullRequestDiff(input)
@@ -82,6 +136,11 @@ async function main() {
     input.evaluated_head_sha = acquired.evaluated_head_sha
     input.diff_acquisition_failed = !acquired.ok
     input.evaluated_base_sha = acquired.evaluated_base_sha
+  }
+  if (input.require_review_approval && input.require_review_approval.toLowerCase() === 'true' && !input.review_evidence) {
+    const acquired = await acquireReviewEvidence(input)
+    input.review_evidence = acquired.review_evidence
+    input.review_acquisition_failed = !acquired.ok
   }
   const decision = validateMergeGuard(input)
   const proof = proofFromDecision(decision)
@@ -98,6 +157,9 @@ async function main() {
   console.log(`attribution_status=${decision.attribution_status}`)
   console.log(`attribution_classification=${decision.attribution_classification}`)
   console.log(`actor_kind=${decision.actor_attribution.actor_kind}`)
+  console.log(`review_status=${decision.review_status}`)
+  console.log(`review_evidence_hash=${decision.review_evidence_hash || 'null'}`)
+  console.log(`approval_count=${decision.approval_count}`)
   if (decision.missing_fields.length > 0) console.log(`missing_fields=${decision.missing_fields.join(',')}`)
   if (decision.invalid_fields.length > 0) console.log(`invalid_fields=${decision.invalid_fields.join(',')}`)
   if (decision.null_reasons.length > 0) console.log(`null_reasons=${decision.null_reasons.join(',')}`)
@@ -115,6 +177,9 @@ async function main() {
     appendFileSync(githubOutput, `attribution_classification=${decision.attribution_classification}\n`)
     appendFileSync(githubOutput, `actor_kind=${decision.actor_attribution.actor_kind}\n`)
     appendFileSync(githubOutput, `attribution_evidence_hash=${decision.attribution_evidence_hash}\n`)
+    appendFileSync(githubOutput, `review_status=${decision.review_status}\n`)
+    appendFileSync(githubOutput, `review_evidence_hash=${decision.review_evidence_hash || ''}\n`)
+    appendFileSync(githubOutput, `approval_count=${decision.approval_count}\n`)
   }
 
   const githubStepSummary = process.env.GITHUB_STEP_SUMMARY
@@ -131,6 +196,9 @@ async function main() {
       `attribution_status: \`${decision.attribution_status}\``,
       `attribution_classification: \`${decision.attribution_classification}\``,
       `actor_kind: \`${decision.actor_attribution.actor_kind}\``,
+      `review_status: \`${decision.review_status}\``,
+      `review_evidence_hash: \`${decision.review_evidence_hash || 'null'}\``,
+      `approval_count: \`${decision.approval_count}\``,
       `null_reasons: \`${decision.null_reasons.join(',') || 'none'}\``,
       '',
       '```json',

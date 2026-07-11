@@ -1,0 +1,26 @@
+{
+  "description": "review approval bound to stale head is null",
+  "input": {
+    "repo": "owner/repo",
+    "pr_number": "33",
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "actor": "reviewed-contributor",
+    "require_review_approval": "true",
+    "minimum_approvals": "1",
+    "review_evidence": {
+      "head_sha": "cccccccccccccccccccccccccccccccccccccccc",
+      "reviews": [
+        {
+          "reviewer": "alice",
+          "state": "APPROVED",
+          "submitted_at": "2026-01-01T00:00:00Z",
+          "commit_id": "cccccccccccccccccccccccccccccccccccccccc"
+        }
+      ]
+    }
+  },
+  "expected_result": "NULL",
+  "expected_missing_fields": [],
+  "expected_null_reasons": ["REVIEW_HEAD_SHA_MISMATCH"]
+}
