@@ -6,7 +6,7 @@ ContinuityOS Merge Guard tracks three identifiers:
 - `canonical_algorithm_version`: identifier for canonical validation semantics and decision-hash inputs.
 - `proof_schema_version`: semantic version of the emitted proof document shape.
 
-`release/validator-metadata.json` is the machine-readable source for these values. Patch releases update `validator_version`; minor releases update `validator_version` and may update `proof_schema_version` for compatible additions; major releases update `validator_version` and advance `canonical_algorithm_version` or `proof_schema_version` when semantics or proof compatibility change.
+`release/validator-metadata.json` is the machine-readable source for these values. Development branches use `validator_version: development` and `validator_release_hash: null` in proofs until an exact release is cut. Patch releases update `validator_version`; minor releases update `validator_version` and may update `proof_schema_version` for compatible additions; major releases update `validator_version` and advance `canonical_algorithm_version` or `proof_schema_version` when semantics or proof compatibility change.
 
 ## Patch releases
 

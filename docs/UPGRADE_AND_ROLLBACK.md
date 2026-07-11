@@ -23,3 +23,7 @@ Across compatible versions, `canonical_hash` remains the decision hash for the v
 ## Deprecation policy
 
 Deprecated compatible inputs remain accepted through the current major line. Removal or reinterpretation requires a major version.
+
+## Development checkouts
+
+Development branch proofs identify `validator_version` as `development` and set `validator_release_hash` to `null`. Do not treat a development proof as evidence of an exact published release.

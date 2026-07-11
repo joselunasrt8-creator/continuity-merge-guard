@@ -22,6 +22,15 @@ function gitHead() {
   try { return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() } catch { return 'unknown' }
 }
 
+function sourceCommit() {
+  try {
+    const metadata = JSON.parse(readFileSync('release/validator-metadata.json', 'utf8'))
+    return metadata.validator_version === 'development' ? 'development' : gitHead()
+  } catch {
+    return 'development'
+  }
+}
+
 function fixturePaths() {
   try {
     return execFileSync('git', ['ls-files', 'fixtures/*.json'], { encoding: 'utf8' })
@@ -42,7 +51,7 @@ export function buildReleaseManifest() {
   const canonical = JSON.stringify({ files })
   return {
     manifest_version: '1.0.0',
-    source_commit: gitHead(),
+    source_commit: sourceCommit(),
     release_hash: `sha256:${sha256(canonical)}`,
     files,
   }
