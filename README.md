@@ -4,13 +4,13 @@ Govern repository state transitions.
 
 VALID | NULL | PROOF
 
-StateGate validates whether the exact proposed pull-request mutation remains authorized, policy-compliant, current, and eligible to become canonical repository state.
+StateGate validates whether an exact proposed pull-request mutation is authorized, policy-compliant, current, and eligible to become canonical repository state.
 
 <p align="center">
   <img
     src="./docs/images/stategate-overview.jpg"
     alt="StateGate state-transition overview"
-    width="900">
+    width="100%">
 </p>
 
 
