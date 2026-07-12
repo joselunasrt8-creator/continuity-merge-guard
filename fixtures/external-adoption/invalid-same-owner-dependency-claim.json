@@ -1,0 +1,74 @@
+{
+  "evidence_schema_version": "1.0.0",
+  "evidence_id": "invalid-same-owner-dependency",
+  "observed_at": "1970-01-01T00:00:00Z",
+  "repository": "example/eval",
+  "repository_owner": "example",
+  "operator": "operator",
+  "trust_boundary_class": "SAME_OWNER",
+  "evaluator_relationship": "independent external maintainer controls publication",
+  "stategate_version": "1.1.1",
+  "stategate_ref": "v1",
+  "workflow_path": ".github/workflows/stategate.yml",
+  "required_check_name": "stategate",
+  "adoption_stage": "STAGE_8_INDEPENDENT_DEPENDENCY_CONFIRMED",
+  "evidence_status": "OBSERVED",
+  "installation_evidence": {
+    "status": "OBSERVED",
+    "voluntary_install": true,
+    "workflow_commit": "abc123",
+    "workflow_run_url": "https://example.invalid/run"
+  },
+  "valid_run_evidence": {
+    "status": "OBSERVED",
+    "run_id": "1",
+    "conclusion": "success",
+    "proof_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bounded": true
+  },
+  "null_run_evidence": {
+    "status": "OBSERVED",
+    "run_id": "2",
+    "conclusion": "failure",
+    "proof_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bounded": true
+  },
+  "repeat_usage_evidence": {
+    "status": "OBSERVED",
+    "run_count": 3,
+    "pull_request_count": 2,
+    "time_separated": false
+  },
+  "retention_evidence": {
+    "status": "OBSERVED",
+    "operator_decision": "RETAIN",
+    "decision_record": "synthetic fixture only"
+  },
+  "removal_experiment": {
+    "status": "OBSERVED",
+    "condition": "BYPASSED",
+    "operator_approved": true,
+    "baseline_recorded": true,
+    "restored": true,
+    "restoration_confirmed": true
+  },
+  "degradation_observation": {
+    "status": "OBSERVED",
+    "validation_property_lost": true,
+    "proof_property_lost": true,
+    "merge_eligibility_property_lost": true,
+    "materially_weaker": true
+  },
+  "proof_artifact_hashes": [
+    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ],
+  "limitations": [
+    "Synthetic validator fixture; not actual external adoption."
+  ],
+  "attestation": {
+    "attestor": "",
+    "attested_at": "1970-01-01T00:00:00Z",
+    "statement": "Placeholder only; do not treat as adoption evidence."
+  }
+}

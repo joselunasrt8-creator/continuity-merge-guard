@@ -3,7 +3,7 @@
 // Deterministic conformance test for the StateGate decision logic.
 // No network, no GitHub API — runs evaluate() directly against fixtures.
 
-import { readdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -517,4 +517,56 @@ try {
 
 const reviewTotal = passCount + failCount
 console.log(`\nReview-inclusive Total: ${reviewTotal} | PASS: ${passCount} | FAIL: ${failCount}`)
+console.log('\n=== External adoption evidence protocol tests ===\n')
+const adoptionValidator = join(dir, 'scripts/validate-external-adoption-evidence.mjs')
+const adoptionFixtures = join(dir, 'fixtures/external-adoption')
+function runAdoptionValidator(files) {
+  return runNode([adoptionValidator, ...files.map(f => join(adoptionFixtures, f))])
+}
+function validatorAccepts(name, file) {
+  const result = runAdoptionValidator([file])
+  assertCase(name, result.status === 0, `${file} validates (${result.stderr.trim() || result.stdout.trim()})`)
+}
+function validatorRejects(name, file, expected) {
+  const result = runAdoptionValidator([file])
+  assertCase(name, result.status !== 0 && result.stderr.includes(expected), `${file} rejects with ${expected}`)
+}
+validatorAccepts('external-adoption-placeholder-template-validates', '../../docs/templates/EXTERNAL_ADOPTION_EVIDENCE.json')
+validatorAccepts('external-adoption-installation-only-validates', 'valid-installation-only.json')
+validatorAccepts('external-adoption-repeat-use-validates', 'valid-repeat-use.json')
+validatorAccepts('external-adoption-independent-dependency-fixture-validates', 'valid-independent-dependency.json')
+validatorRejects('external-adoption-same-owner-not-independent', 'invalid-same-owner-dependency-claim.json', 'trust_boundary_class')
+validatorRejects('external-adoption-sandbox-not-independent', 'invalid-sandbox-dependency-claim.json', 'trust_boundary_class')
+validatorRejects('external-adoption-missing-valid-blocks-later-stage', 'invalid-later-stage-missing-valid.json', 'valid_run_evidence.status')
+const missingNull = JSON.parse(readFileSync(join(adoptionFixtures, 'valid-repeat-use.json'), 'utf8'))
+missingNull.null_run_evidence.status = 'UNOBSERVED'
+writeFileSync(join(adoptionFixtures, '.tmp-missing-null.json'), JSON.stringify(missingNull, null, 2))
+validatorRejects('external-adoption-missing-null-blocks-required-check-claims', '.tmp-missing-null.json', 'null_run_evidence.status')
+const missingRepeat = JSON.parse(readFileSync(join(adoptionFixtures, 'valid-independent-dependency.json'), 'utf8'))
+missingRepeat.repeat_usage_evidence.run_count = 1
+writeFileSync(join(adoptionFixtures, '.tmp-missing-repeat.json'), JSON.stringify(missingRepeat, null, 2))
+validatorRejects('external-adoption-repeat-required', '.tmp-missing-repeat.json', 'repeat_usage_evidence')
+const missingRetention = JSON.parse(readFileSync(join(adoptionFixtures, 'valid-independent-dependency.json'), 'utf8'))
+missingRetention.retention_evidence.operator_decision = 'UNDECIDED'
+writeFileSync(join(adoptionFixtures, '.tmp-missing-retention.json'), JSON.stringify(missingRetention, null, 2))
+validatorRejects('external-adoption-retention-required', '.tmp-missing-retention.json', 'retention_evidence')
+validatorRejects('external-adoption-degradation-required', 'invalid-confirmed-without-degradation.json', 'degradation_observation')
+const missingRestore = JSON.parse(readFileSync(join(adoptionFixtures, 'valid-independent-dependency.json'), 'utf8'))
+missingRestore.removal_experiment.restoration_confirmed = false
+writeFileSync(join(adoptionFixtures, '.tmp-missing-restore.json'), JSON.stringify(missingRestore, null, 2))
+validatorRejects('external-adoption-restoration-required', '.tmp-missing-restore.json', 'removal_experiment')
+validatorRejects('external-adoption-unknown-status-fails', 'invalid-unknown-status.json', 'evidence_status')
+validatorRejects('external-adoption-additional-property-fails-schema', 'invalid-additional-property.json', 'additional property not allowed')
+validatorRejects('external-adoption-missing-nested-required-fails-schema', 'invalid-missing-nested-required.json', 'attestation.statement')
+validatorRejects('external-adoption-incorrect-nested-type-fails-schema', 'invalid-incorrect-nested-type.json', 'removal_experiment.operator_approved')
+validatorRejects('external-adoption-negative-run-count-fails-schema', 'invalid-negative-run-count.json', 'repeat_usage_evidence.run_count')
+validatorRejects('external-adoption-malformed-observed-at-fails-schema', 'invalid-malformed-observed-at.json', 'observed_at')
+validatorRejects('external-adoption-malformed-attestation-fails-schema', 'invalid-malformed-attestation.json', 'attestation')
+const reordered = JSON.parse(readFileSync(join(adoptionFixtures, 'valid-repeat-use.json'), 'utf8'))
+writeFileSync(join(adoptionFixtures, '.tmp-reordered.json'), JSON.stringify(Object.fromEntries(Object.entries(reordered).reverse()), null, 2))
+validatorAccepts('external-adoption-field-order-independent', '.tmp-reordered.json')
+const allFixtureText = readdirSync(adoptionFixtures).filter(f => f.endsWith('.json')).map(f => readFileSync(join(adoptionFixtures, f), 'utf8')).join('\n')
+assertCase('external-adoption-fixtures-disclaim-actual-adoption', !allFixtureText.includes('github.com/') && allFixtureText.includes('not actual external adoption'), 'fixtures do not claim actual external adoption')
+for (const tmp of ['.tmp-missing-null.json', '.tmp-missing-repeat.json', '.tmp-missing-retention.json', '.tmp-missing-restore.json', '.tmp-reordered.json']) rmSync(join(adoptionFixtures, tmp), { force: true })
+
 if (failCount > 0) process.exitCode = 1

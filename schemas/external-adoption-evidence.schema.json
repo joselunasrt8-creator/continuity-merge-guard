@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/joselunasrt8-creator/stategate/schemas/external-adoption-evidence.schema.json",
+  "title": "StateGate External Adoption Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidence_schema_version", "evidence_id", "observed_at", "repository", "repository_owner", "operator", "trust_boundary_class", "evaluator_relationship", "stategate_version", "stategate_ref", "workflow_path", "required_check_name", "adoption_stage", "evidence_status", "installation_evidence", "valid_run_evidence", "null_run_evidence", "repeat_usage_evidence", "retention_evidence", "removal_experiment", "degradation_observation", "proof_artifact_hashes", "limitations", "attestation"
+  ],
+  "properties": {
+    "evidence_schema_version": { "const": "1.0.0" },
+    "evidence_id": { "type": "string", "minLength": 1 },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "repository": { "type": "string" },
+    "repository_owner": { "type": "string" },
+    "operator": { "type": "string" },
+    "trust_boundary_class": { "enum": ["SAME_OWNER", "SAME_ORGANIZATION_SHARED_CONTROL", "COLLABORATOR_CONTROLLED", "INDEPENDENT_EXTERNAL_MAINTAINER", "SANDBOX_OR_TEST", "UNKNOWN"] },
+    "evaluator_relationship": { "type": "string" },
+    "stategate_version": { "type": "string" },
+    "stategate_ref": { "type": "string" },
+    "workflow_path": { "type": "string" },
+    "required_check_name": { "type": "string" },
+    "adoption_stage": { "enum": ["STAGE_0_NOT_INSTALLED", "STAGE_1_EXTERNAL_INSTALLATION", "STAGE_2_FIRST_VALID_RUN", "STAGE_3_FIRST_NULL_BLOCK", "STAGE_4_REQUIRED_CHECK_ENABLED", "STAGE_5_REPEAT_USAGE", "STAGE_6_OPERATOR_RETAIN", "STAGE_7_REMOVAL_DEGRADATION", "STAGE_8_INDEPENDENT_DEPENDENCY_CONFIRMED"] },
+    "evidence_status": { "enum": ["OBSERVED", "UNOBSERVED", "BLOCKED", "NOT_APPLICABLE", "DISPUTED"] },
+    "installation_evidence": { "$ref": "#/$defs/installation" },
+    "valid_run_evidence": { "$ref": "#/$defs/run" },
+    "null_run_evidence": { "$ref": "#/$defs/run" },
+    "repeat_usage_evidence": { "$ref": "#/$defs/repeat" },
+    "retention_evidence": { "$ref": "#/$defs/retention" },
+    "removal_experiment": { "$ref": "#/$defs/removal" },
+    "degradation_observation": { "$ref": "#/$defs/degradation" },
+    "proof_artifact_hashes": { "type": "array", "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "attestation": { "type": "object", "additionalProperties": false, "required": ["attestor", "attested_at", "statement"], "properties": { "attestor": {"type":"string"}, "attested_at": {"type":"string", "format":"date-time"}, "statement": {"type":"string"} } }
+  },
+  "$defs": {
+    "status": { "enum": ["OBSERVED", "UNOBSERVED", "BLOCKED", "NOT_APPLICABLE", "DISPUTED"] },
+    "installation": { "type": "object", "additionalProperties": false, "required": ["status", "voluntary_install", "workflow_commit", "workflow_run_url"], "properties": { "status": {"$ref":"#/$defs/status"}, "voluntary_install": {"type":"boolean"}, "workflow_commit": {"type":"string"}, "workflow_run_url": {"type":"string"} } },
+    "run": { "type": "object", "additionalProperties": false, "required": ["status", "run_id", "conclusion", "proof_hash", "bounded"], "properties": { "status": {"$ref":"#/$defs/status"}, "run_id": {"type":"string"}, "conclusion": {"type":"string"}, "proof_hash": {"type":"string"}, "bounded": {"type":"boolean"} } },
+    "repeat": { "type": "object", "additionalProperties": false, "required": ["status", "run_count", "pull_request_count", "time_separated"], "properties": { "status": {"$ref":"#/$defs/status"}, "run_count": {"type":"integer", "minimum":0}, "pull_request_count": {"type":"integer", "minimum":0}, "time_separated": {"type":"boolean"} } },
+    "retention": { "type": "object", "additionalProperties": false, "required": ["status", "operator_decision", "decision_record"], "properties": { "status": {"$ref":"#/$defs/status"}, "operator_decision": {"enum":["RETAIN", "REMOVE", "UNDECIDED", "NOT_APPLICABLE"]}, "decision_record": {"type":"string"} } },
+    "removal": { "type": "object", "additionalProperties": false, "required": ["status", "condition", "operator_approved", "baseline_recorded", "restored", "restoration_confirmed"], "properties": { "status": {"$ref":"#/$defs/status"}, "condition": {"enum":["REMOVED", "DISABLED", "BYPASSED", "UNAVAILABLE", "RETURNED_NULL", "NOT_APPLICABLE"]}, "operator_approved": {"type":"boolean"}, "baseline_recorded": {"type":"boolean"}, "restored": {"type":"boolean"}, "restoration_confirmed": {"type":"boolean"} } },
+    "degradation": { "type": "object", "additionalProperties": false, "required": ["status", "validation_property_lost", "proof_property_lost", "merge_eligibility_property_lost", "materially_weaker"], "properties": { "status": {"$ref":"#/$defs/status"}, "validation_property_lost": {"type":"boolean"}, "proof_property_lost": {"type":"boolean"}, "merge_eligibility_property_lost": {"type":"boolean"}, "materially_weaker": {"type":"boolean"} } }
+  }
+}

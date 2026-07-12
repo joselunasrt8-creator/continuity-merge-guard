@@ -84,6 +84,14 @@ Boundary statements:
 - The action does not bind the final merge commit.
 - It is a deterministic state-transition eligibility validator for GitHub pull requests, not a semantic code-review engine or final merge authority.
 
+## External adoption evidence
+
+StateGate is published and usable. External adoption should be evaluated through a narrow evidence path:
+
+Install → Verify → Enable as required → Record evidence → Evaluate retention → Test dependency.
+
+Independent dependency has not been established until external evidence satisfies `docs/EXTERNAL_ADOPTION_PROTOCOL.md`. Installation, first successful use, repeat use, retention, and load-bearing adoption are distinct from independent dependency. Do not infer independent dependency from same-owner, sandbox, or unverified external evidence.
+
 ## Installation
 
 Choose the pinning form that matches your reproducibility requirement:

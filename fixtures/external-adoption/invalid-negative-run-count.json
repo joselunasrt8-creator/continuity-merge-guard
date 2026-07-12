@@ -1,0 +1,71 @@
+{
+  "evidence_schema_version": "1.0.0",
+  "evidence_id": "placeholder-unobserved",
+  "observed_at": "1970-01-01T00:00:00Z",
+  "repository": "",
+  "repository_owner": "",
+  "operator": "",
+  "trust_boundary_class": "UNKNOWN",
+  "evaluator_relationship": "placeholder only; no external evidence observed",
+  "stategate_version": "",
+  "stategate_ref": "",
+  "workflow_path": "",
+  "required_check_name": "",
+  "adoption_stage": "STAGE_0_NOT_INSTALLED",
+  "evidence_status": "UNOBSERVED",
+  "installation_evidence": {
+    "status": "UNOBSERVED",
+    "voluntary_install": false,
+    "workflow_commit": "",
+    "workflow_run_url": ""
+  },
+  "valid_run_evidence": {
+    "status": "UNOBSERVED",
+    "run_id": "",
+    "conclusion": "",
+    "proof_hash": "",
+    "bounded": false
+  },
+  "null_run_evidence": {
+    "status": "UNOBSERVED",
+    "run_id": "",
+    "conclusion": "",
+    "proof_hash": "",
+    "bounded": false
+  },
+  "repeat_usage_evidence": {
+    "status": "UNOBSERVED",
+    "run_count": -1,
+    "pull_request_count": 0,
+    "time_separated": false
+  },
+  "retention_evidence": {
+    "status": "UNOBSERVED",
+    "operator_decision": "UNDECIDED",
+    "decision_record": ""
+  },
+  "removal_experiment": {
+    "status": "UNOBSERVED",
+    "condition": "NOT_APPLICABLE",
+    "operator_approved": false,
+    "baseline_recorded": false,
+    "restored": false,
+    "restoration_confirmed": false
+  },
+  "degradation_observation": {
+    "status": "UNOBSERVED",
+    "validation_property_lost": false,
+    "proof_property_lost": false,
+    "merge_eligibility_property_lost": false,
+    "materially_weaker": false
+  },
+  "proof_artifact_hashes": [],
+  "limitations": [
+    "Placeholder template; no observed external adoption."
+  ],
+  "attestation": {
+    "attestor": "",
+    "attested_at": "1970-01-01T00:00:00Z",
+    "statement": "Placeholder only; do not treat as adoption evidence."
+  }
+}
