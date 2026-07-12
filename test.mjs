@@ -222,16 +222,27 @@ assertCase('action-metadata-stategate-description', /^description:\s*['"]Govern 
 
 const readme = readFileSync(join(dir, 'README.md'), 'utf8')
 const consumerWorkflow = readFileSync(join(dir, 'examples/consumer-workflow.yml'), 'utf8')
+const postReleaseVerification = readFileSync(join(dir, 'docs/POST_RELEASE_VERIFICATION.md'), 'utf8')
 assertCase('documented-install-uses-stategate', readme.includes('uses: joselunasrt8-creator/stategate@v1') && consumerWorkflow.includes('uses: joselunasrt8-creator/stategate@v1'), 'documented install examples use the stategate repository')
+assertCase('consumer-workflow-uses-floating-v1-only', !consumerWorkflow.includes('joselunasrt8-creator/stategate@v1.0.0') && !consumerWorkflow.includes('joselunasrt8-creator/continuity-merge-guard'), 'consumer verification fixture uses only the canonical floating v1 install reference')
+assertCase('consumer-workflow-null-diff-is-deterministic', !/pr-diff:\s*['"]{2}/.test(consumerWorkflow) && consumerWorkflow.includes('not a valid git unified diff') && consumerWorkflow.includes('DIFF_MALFORMED'), 'NULL fixture uses malformed local diff input and asserts DIFF_MALFORMED')
+assertCase('consumer-workflow-splits-fixture-jobs', /^  stategate-valid:/m.test(consumerWorkflow) && /^  stategate-null:/m.test(consumerWorkflow) && /^  stategate:/m.test(consumerWorkflow), 'consumer workflow has separate VALID, NULL, and aggregate required-check jobs')
+const validJob = consumerWorkflow.match(/^  stategate-valid:[\s\S]*?(?=^  stategate-null:)/m)?.[0] || ''
+const nullJob = consumerWorkflow.match(/^  stategate-null:[\s\S]*?(?=^  stategate:)/m)?.[0] || ''
+const aggregateJob = consumerWorkflow.match(/^  stategate:[\s\S]*$/m)?.[0] || ''
+assertCase('consumer-workflow-invokes-stategate-once-per-fixture-job', (validJob.match(/uses: joselunasrt8-creator\/stategate@v1/g) || []).length === 1 && (nullJob.match(/uses: joselunasrt8-creator\/stategate@v1/g) || []).length === 1 && !aggregateJob.includes('uses: joselunasrt8-creator/stategate@v1'), 'StateGate action is invoked once in each fixture job and not in the aggregate job')
+assertCase('post-release-tag-model-v11-floating', !/v1\s*(?:==|=|same commit as|resolve to the same commit as)\s*v1\.0\.0/i.test(postReleaseVerification) && postReleaseVerification.includes('refs/tags/v1.1.0') && postReleaseVerification.includes('After `v1.1.0` exists, confirm `v1` and `v1.1.0` dereference to the same release commit'), 'post-release checklist compares v1 with v1.1.0 instead of v1.0.0')
+assertCase('post-release-preserves-v100-historical-source', postReleaseVerification.includes('v1.0.0` is the immutable historical pre-StateGate release') && postReleaseVerification.includes('b26c7c29b1f52ac78f6112f9b1a2f1180b00a600'), 'post-release checklist preserves historical v1.0.0 source commit')
 assertCase('migration-documents-legacy-action-reference', readme.includes('uses: joselunasrt8-creator/continuity-merge-guard@v1') && readme.includes('uses: joselunasrt8-creator/stategate@v1'), 'migration notes document the legacy action reference and canonical StateGate replacement')
 
-const publicFacingFiles = ['action.yml', 'README.md', 'docs/ARCHITECTURE.md', 'docs/FILE_MANIFEST.md', 'docs/UPGRADE_AND_ROLLBACK.md', 'docs/VERSIONING.md', 'docs/RELEASE_CHECKLIST.md', 'docs/EXTERNAL_INSTALL_VERIFICATION.md', 'examples/consumer-workflow.yml']
+const publicFacingFiles = ['action.yml', 'README.md', 'docs/ARCHITECTURE.md', 'docs/FILE_MANIFEST.md', 'docs/UPGRADE_AND_ROLLBACK.md', 'docs/VERSIONING.md', 'docs/RELEASE_CHECKLIST.md', 'docs/EXTERNAL_INSTALL_VERIFICATION.md', 'docs/POST_RELEASE_VERIFICATION.md', 'examples/consumer-workflow.yml']
 const unintendedLegacyBranding = []
 for (const relative of publicFacingFiles) {
   const text = readFileSync(join(dir, relative), 'utf8')
   const lines = text.split('\n')
   lines.forEach((line, index) => {
-    const allowedMigration = relative === 'README.md' && (line.includes('Migrating from Merge Guard') || line.includes('prior Merge Guard action') || line.includes('continuity-merge-guard'))
+    const allowedMigration = (relative === 'README.md' && (line.includes('Migrating from Merge Guard') || line.includes('prior Merge Guard action') || line.includes('continuity-merge-guard')))
+      || (relative === 'docs/POST_RELEASE_VERIFICATION.md' && line.includes('MERGE_GUARD'))
     if (!allowedMigration && /ContinuityOS Merge Guard|\bMerge Guard\b|continuity-merge-guard/.test(line)) {
       unintendedLegacyBranding.push(`${relative}:${index + 1}:${line.trim()}`)
     }
@@ -247,6 +258,11 @@ console.log('\n=== Release metadata and manifest tests ===\n')
 const identityA = validatorIdentity()
 const identityB = validatorIdentity()
 assertCase('validator-metadata-deterministic', JSON.stringify(identityA) === JSON.stringify(identityB) && identityA.validator_name === 'stategate' && identityA.validator_version === 'development' && identityA.proof_schema_version === '1.1.0', 'validator identity is deterministic and uses development metadata on the branch')
+
+
+const archivedV100Manifest = JSON.parse(readFileSync(join(dir, 'release/manifests/v1.0.0.json'), 'utf8'))
+assertCase('archived-v100-manifest-version-consistency', archivedV100Manifest.release === 'v1.0.0' && archivedV100Manifest.manifest_version === '1.0.0' && archivedV100Manifest.source_commit === 'b26c7c29b1f52ac78f6112f9b1a2f1180b00a600', 'archived v1.0.0 manifest preserves exact historical release metadata')
+assertCase('compatibility-identifiers-not-renamed', actionMetadata.includes('MERGE_GUARD_PROOF') && actionMetadata.includes('MERGE_GUARD_REPO') && identityA.canonical_algorithm_version === 'merge-guard-v1', 'compatibility-sensitive proof and environment identifiers remain stable')
 
 const proofWithValidator = proofFromDecision(canonicalEntry)
 assertCase('proof-includes-validator-identity', proofWithValidator.validator?.validator_version === identityA.validator_version && proofWithValidator.validator?.validator_release_hash === identityA.validator_release_hash, 'proof contains validator identity envelope')

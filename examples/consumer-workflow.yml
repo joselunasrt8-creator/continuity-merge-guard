@@ -4,13 +4,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  exact-pin-valid:
+  stategate-valid:
+    name: stategate-valid
     runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.valid.outputs.result }}
+      proof_id: ${{ steps.valid.outputs.proof_id }}
+      proof_hash: ${{ steps.valid.outputs.proof_hash }}
     steps:
       - uses: actions/checkout@v4
-      - name: Run exact pin VALID case
-        id: stategate
-        uses: joselunasrt8-creator/stategate@v1.0.0
+
+      - name: Run StateGate VALID case
+        id: valid
+        uses: joselunasrt8-creator/stategate@v1
         with:
           repo: owner/repo
           pr-number: '1'
@@ -25,17 +31,31 @@ jobs:
             @@ -1 +1 @@
             -old
             +new
-      - uses: actions/upload-artifact@v4
-        with:
-          name: exact-pin-valid-proof
-          path: MERGE_GUARD_PROOF.json
 
-  major-pin-null:
+      - name: Assert VALID result
+        run: |
+          test "${{ steps.valid.outputs.result }}" = "VALID"
+          test -n "${{ steps.valid.outputs.proof_id }}"
+          test -n "${{ steps.valid.outputs.proof_hash }}"
+
+      - name: Upload VALID proof artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stategate-valid-proof
+          path: MERGE_GUARD_PROOF.json
+          if-no-files-found: error
+
+  stategate-null:
+    name: stategate-null
     runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.null.outputs.result }}
+      null_reasons: ${{ steps.null.outputs.null_reasons }}
     steps:
       - uses: actions/checkout@v4
-      - name: Run major pin NULL case
-        id: stategate
+
+      - name: Run StateGate NULL case
+        id: null
         continue-on-error: true
         uses: joselunasrt8-creator/stategate@v1
         with:
@@ -44,15 +64,39 @@ jobs:
           head-sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           base-sha: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
           actor: human-user
-          pr-diff: ''
-      - uses: actions/upload-artifact@v4
-        with:
-          name: major-pin-null-proof
-          path: MERGE_GUARD_PROOF.json
-      - name: Document outputs
+          pr-diff: |
+            not a valid git unified diff
+
+      - name: Assert bounded NULL result
         run: |
-          echo "result=${{ steps.stategate.outputs.result }}"
-          echo "proof_id=${{ steps.stategate.outputs.proof_id }}"
-          echo "proof_hash=${{ steps.stategate.outputs.proof_hash }}"
-          echo "diff_hash=${{ steps.stategate.outputs.diff_hash }}"
-          echo "null_reasons=${{ steps.stategate.outputs.null_reasons }}"
+          test "${{ steps.null.outputs.result }}" = "NULL"
+          case ",${{ steps.null.outputs.null_reasons }}," in
+            *,DIFF_MALFORMED,*) ;;
+            *) echo "expected DIFF_MALFORMED, got ${{ steps.null.outputs.null_reasons }}" >&2; exit 1 ;;
+          esac
+
+      - name: Upload NULL proof artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stategate-null-proof
+          path: MERGE_GUARD_PROOF.json
+          if-no-files-found: error
+
+  stategate:
+    name: stategate
+    runs-on: ubuntu-latest
+    needs:
+      - stategate-valid
+      - stategate-null
+    steps:
+      - name: Aggregate StateGate consumer verification
+        run: |
+          test "${{ needs.stategate-valid.result }}" = "success"
+          test "${{ needs.stategate-valid.outputs.result }}" = "VALID"
+          test "${{ needs.stategate-null.result }}" = "success"
+          test "${{ needs.stategate-null.outputs.result }}" = "NULL"
+          case ",${{ needs.stategate-null.outputs.null_reasons }}," in
+            *,DIFF_MALFORMED,*) ;;
+            *) echo "expected DIFF_MALFORMED, got ${{ needs.stategate-null.outputs.null_reasons }}" >&2; exit 1 ;;
+          esac
+          echo "required_check=stategate"
