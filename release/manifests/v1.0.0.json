@@ -1,7 +1,7 @@
 {
   "manifest_version": "1.0.0",
   "release": "v1.0.0",
-  "source_commit": "b26c7c29b1f52ac78f6112f9b1a2f1180b00a600",
+  "source_commit": "bbc8ad7eb48645530542db85eb12a6c26b461404",
   "release_hash": "sha256:3df20007f52a364101b9a9998ac88f0a4602f506e5d72ab591f489d79af881e7",
   "files": [
     {

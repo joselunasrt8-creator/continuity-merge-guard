@@ -40,7 +40,7 @@ if (!published && metadata.validator_version === 'development' && !changelog.inc
 if (!published && metadata.validator_version !== 'development' && !changelog.includes(`## [${metadata.validator_version}]`)) fail(`CHANGELOG.md lacks ${metadata.validator_version}`)
 
 const archivedV100 = readJson('release/manifests/v1.0.0.json')
-if (archivedV100.release !== 'v1.0.0' || archivedV100.source_commit !== 'b26c7c29b1f52ac78f6112f9b1a2f1180b00a600') fail('v1.0.0 provenance changed')
+if (archivedV100.release !== 'v1.0.0' || archivedV100.source_commit !== 'bbc8ad7eb48645530542db85eb12a6c26b461404') fail('v1.0.0 provenance changed')
 if (metadata.canonical_algorithm_version !== 'merge-guard-v1') fail('canonical_algorithm_version changed')
 if (metadata.compatibility_range !== '>=1.0.0 <2.0.0') fail('compatibility_range changed')
 
@@ -50,7 +50,7 @@ requireString(manifest, 'release', 'release/RELEASE_MANIFEST.json')
 requireString(manifest, 'release_hash', 'release/RELEASE_MANIFEST.json')
 requireString(manifest, 'source_tree', 'release/RELEASE_MANIFEST.json')
 if (manifest.release !== (metadata.validator_version === 'development' ? 'development' : `v${metadata.validator_version}`)) fail('manifest release does not match validator_version')
-if ('source_commit' in manifest) fail('release manifest must not bind v1.1.0 to a source_commit')
+if ('source_commit' in manifest) fail('release manifest must not bind v1.1.1 to a source_commit')
 
 if (manifest.release !== 'development') {
   const archivedCurrentPath = `release/manifests/${manifest.release}.json`

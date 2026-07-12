@@ -1,6 +1,6 @@
 {
   "validator_name": "stategate",
-  "validator_version": "1.1.0",
+  "validator_version": "1.1.1",
   "canonical_algorithm_version": "merge-guard-v1",
   "proof_schema_version": "1.1.0",
   "compatibility_range": ">=1.0.0 <2.0.0"

@@ -4,7 +4,27 @@ Stable format: each release records semantic version, release date, source commi
 
 ## [Unreleased]
 
-- No unpublished changes after the v1.1.0 release-candidate handoff.
+- No unpublished changes after the v1.1.1 corrective release-candidate handoff.
+
+## [1.1.1] - 2026-07-12
+
+- Source tree: recorded in `release/RELEASE_MANIFEST.json` and `release/manifests/v1.1.1.json` as the deterministic release-content tree.
+- Release manifest: `release/RELEASE_MANIFEST.json`; archived copy `release/manifests/v1.1.1.json` is committed with the finalized release content.
+- Canonical algorithm version: `merge-guard-v1`
+- Proof schema version: `1.1.0`
+- Compatibility range: `>=1.0.0 <2.0.0`
+
+### Fixed
+- Corrected archived `v1.0.0` provenance metadata and verification assertions to match the exact immutable tag target `bbc8ad7eb48645530542db85eb12a6c26b461404`.
+- Documented that the exact historical `v1.0.0` tag was not moved and must remain unchanged while the corrective `v1.1.1` release and floating `v1` verification carry the provenance fix forward.
+
+### Compatibility impact
+- Compatible within `>=1.0.0 <2.0.0`; compatibility-sensitive identifiers are preserved and `merge-guard-v1` is not renamed.
+- `v1.0.0` remains the immutable historical pre-StateGate release bound to `bbc8ad7eb48645530542db85eb12a6c26b461404`; this release corrects repository metadata without moving that exact tag.
+
+### Replay impact
+- Release provenance replay now validates the actual historical `v1.0.0` tag target rather than the previously archived false commit assertion.
+- Runtime VALID/NULL decision semantics are unchanged.
 
 ## [1.1.0] - 2026-07-12
 
@@ -28,7 +48,7 @@ Stable format: each release records semantic version, release date, source commi
 
 ### Compatibility impact
 - Compatible within `>=1.0.0 <2.0.0`; compatibility-sensitive identifiers are preserved and `merge-guard-v1` is not renamed.
-- `v1.0.0` remains the immutable historical pre-StateGate release bound to `b26c7c29b1f52ac78f6112f9b1a2f1180b00a600`; this release does not rewrite or reinterpret that provenance.
+- `v1.0.0` remains the immutable historical pre-StateGate release bound to `bbc8ad7eb48645530542db85eb12a6c26b461404`; this release does not rewrite or reinterpret that provenance.
 
 ### Replay impact
 - Canonical decision hashes remain bound to the validated state-transition object and enabled policies.
@@ -36,7 +56,7 @@ Stable format: each release records semantic version, release date, source commi
 
 ## [1.0.0] - 2026-07-11
 
-- Source commit: `b26c7c29b1f52ac78f6112f9b1a2f1180b00a600`
+- Source commit: `bbc8ad7eb48645530542db85eb12a6c26b461404`
 - Release manifest: `release/manifests/v1.0.0.json`
 - Canonical algorithm version: `merge-guard-v1`
 - Proof schema version: `1.0.0`
