@@ -11,7 +11,7 @@ Stable format: each release records semantic version, release date, source commi
 - Source tree: recorded in `release/RELEASE_MANIFEST.json` and `release/manifests/v1.1.1.json` as the deterministic release-content tree.
 - Release manifest: `release/RELEASE_MANIFEST.json`; archived copy `release/manifests/v1.1.1.json` is committed with the finalized release content.
 - Canonical algorithm version: `merge-guard-v1`
-- Proof schema version: `1.1.1`
+- Proof schema version: `1.1.0`
 - Compatibility range: `>=1.0.0 <2.0.0`
 
 ### Fixed
