@@ -1,8 +1,8 @@
 {
   "manifest_version": "1.0.0",
   "release": "v1.1.1",
-  "source_tree": "bc464b469320e6fcb2b0160b97b283f05fc4c59f",
-  "release_hash": "sha256:e5faa5c90dfb275a9c7628a13c801a62f5fb6ea60cb098dc11d4ab016cf0ce50",
+  "source_tree": "9f45aed34e30597d8842c9cd9eba21854ab3fe62",
+  "release_hash": "sha256:2f660e02b8774949343a628665835d347bb0b9ac9165b4eb8bcf7d168f863fc5",
   "files": [
     {
       "path": "action.yml",
@@ -65,6 +65,70 @@
       "sha256": "ee8532171e84deca8bcd2654e45a79f83e3309c955ae56c8e24127c877b5460a"
     },
     {
+      "path": "fixtures/external-adoption/invalid-additional-property.json",
+      "sha256": "40c0eb1d7b55a34b5f6515cc7049485c3495433db06b5312ce3b0c1e9e525c71"
+    },
+    {
+      "path": "fixtures/external-adoption/invalid-confirmed-without-degradation.json",
+      "sha256": "996d3fcf338bcdc0c8465c2c3ecb4aa41f1af4a15c9719f3bf03583244b806af"
+    },
+    {
+      "path": "fixtures/external-adoption/invalid-incorrect-nested-type.json",
+      "sha256": "9474d4904fdcc984c0b7288e0728ffc10fdfe962c7332767cf0652edf9861803"
+    },
+    {
+      "path": "fixtures/external-adoption/invalid-later-stage-missing-valid.json",
+      "sha256": "c63ab1fa55b957973cf4f5069bb1260746c64222075d00f953f7df6547475137"
+    },
+    {
+      "path": "fixtures/external-adoption/invalid-malformed-attestation.json",
+      "sha256": "4a6fb0b88cb14f6bd36771c2e2e5fd0f4ffd8229e60f169ff00e2f88b89be846"
+    },
+    {
+      "path": "fixtures/external-adoption/invalid-malformed-observed-at.json",
+      "sha256": "dfda5805f25e46f2177c0a191de6d70c015880fb1fdc03addf7ad7aadfff0c71"
+    },
+    {
+      "path": "fixtures/external-adoption/invalid-missing-nested-required.json",
+      "sha256": "0584691286157de3c6cd6ae85acf98be67bbfe3e0a5d04f586cbc2a438d47fbc"
+    },
+    {
+      "path": "fixtures/external-adoption/invalid-missing-trust-boundary.json",
+      "sha256": "6624fc75cfcb27d31324090dd338d5b3ec91628816e43831e0ae9a5737d1b484"
+    },
+    {
+      "path": "fixtures/external-adoption/invalid-negative-run-count.json",
+      "sha256": "872d860841c53fe8c67f70ca3ec112ca27d4d7fdeb978f95d8e4e3bc9ed753da"
+    },
+    {
+      "path": "fixtures/external-adoption/invalid-same-owner-dependency-claim.json",
+      "sha256": "4ccc64fe5cdcfb1a1e77be2791a58c0d7ccbd41f23f1569fc75b5b998cc855b5"
+    },
+    {
+      "path": "fixtures/external-adoption/invalid-sandbox-dependency-claim.json",
+      "sha256": "41e025d45019037a5afc8b4eb57b9b42be0b2a14568f0247883f593ee310cd95"
+    },
+    {
+      "path": "fixtures/external-adoption/invalid-unknown-status.json",
+      "sha256": "84cb4571aa34865544fb75c50e6254cc79fc99dc4ef588ec12f331d41f076757"
+    },
+    {
+      "path": "fixtures/external-adoption/valid-independent-dependency.json",
+      "sha256": "94b55fcf6c77cbfcd6542c31dd5dd40951414515434e6baf8b9aece48e619ff4"
+    },
+    {
+      "path": "fixtures/external-adoption/valid-installation-only.json",
+      "sha256": "f70ae80e1182c64bab856eff0998cbdc7718c124ddf6991bd9fb1695d461d4ad"
+    },
+    {
+      "path": "fixtures/external-adoption/valid-placeholder.json",
+      "sha256": "642c0c9f78b517a489a0d9d8126d2957c9f32415c4884539e559a5eabe0142f9"
+    },
+    {
+      "path": "fixtures/external-adoption/valid-repeat-use.json",
+      "sha256": "11bda80960d06cf1e24f56126d482a8a43b6f19a60bc54d3014fd597825184d8"
+    },
+    {
       "path": "fixtures/hash-determinism.json",
       "sha256": "8eed0a5f5822f177222ffdc3d6b53f8cc5521cb140d89581ead636f5d610c064"
     },
@@ -106,7 +170,7 @@
     },
     {
       "path": "test.mjs",
-      "sha256": "6bb9c7c072836d090867de1a810d7f06df65d76b49eac79b87493ec82d4bef1a"
+      "sha256": "36fd7169042386270d537efa7570c661c3bf8021ea25f8c09d475af21d46cc55"
     }
   ]
 }
