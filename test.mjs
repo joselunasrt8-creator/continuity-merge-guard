@@ -257,7 +257,7 @@ console.log('\n=== Release metadata and manifest tests ===\n')
 
 const identityA = validatorIdentity()
 const identityB = validatorIdentity()
-assertCase('validator-metadata-deterministic', JSON.stringify(identityA) === JSON.stringify(identityB) && identityA.validator_name === 'stategate' && identityA.validator_version === 'development' && identityA.proof_schema_version === '1.1.0', 'validator identity is deterministic and uses development metadata on the branch')
+assertCase('validator-metadata-deterministic', JSON.stringify(identityA) === JSON.stringify(identityB) && identityA.validator_name === 'stategate' && identityA.validator_version === '1.1.0' && identityA.proof_schema_version === '1.1.0', 'validator identity is deterministic and uses v1.1.0 release metadata')
 
 
 const archivedV100Manifest = JSON.parse(readFileSync(join(dir, 'release/manifests/v1.0.0.json'), 'utf8'))
@@ -284,10 +284,10 @@ const manifestAfterSecond = readFileSync(join(dir, 'release/RELEASE_MANIFEST.jso
 assertCase('release-manifest-stable-generation', buildOnce.status === 0 && buildTwice.status === 0 && manifestAfterFirst === manifestAfterSecond, 'release manifest generation is stable across repeated runs')
 
 const verifyOk = runNode(['scripts/verify-release.mjs'])
-assertCase('release-verification-current-tree', verifyOk.status === 0, 'development release verification accepts current metadata, changelog, hashes, and aggregate release hash')
+assertCase('release-verification-current-tree', verifyOk.status === 0, 'release verification accepts current v1.1.0 metadata, changelog, hashes, and aggregate release hash before tag publication')
 
-const publishedWithDevelopment = runNode(['scripts/verify-release.mjs', '--published', '--tag=v1.1.0'])
-assertCase('release-verification-rejects-development-as-published', publishedWithDevelopment.status !== 0, 'published release verification rejects development metadata')
+const publishedWithoutExactTag = runNode(['scripts/verify-release.mjs', '--published', '--tag=v1.1.0'])
+assertCase('release-verification-rejects-absent-tag-as-published', publishedWithoutExactTag.status !== 0, 'published release verification rejects absent or mismatched exact tag')
 
 function withRestoredFile(path, mutate, check) {
   const full = join(dir, path)
@@ -324,33 +324,35 @@ const missingManifestDecision = decisionWithTemporaryFileMove('release/RELEASE_M
 assertCase('decision-boundary-missing-manifest', missingManifestDecision.result === baselineForMetadataBoundary.result && missingManifestDecision.canonical_hash === baselineForMetadataBoundary.canonical_hash, 'missing release manifest does not change canonical decision result or hash')
 
 const devProof = proofFromDecision(baselineForMetadataBoundary)
-assertCase('proof-development-checkout-identity', devProof.validator.validator_version === 'development' && devProof.validator.validator_release_hash === null, 'development checkout proof uses development identity and no release hash')
+assertCase('proof-release-candidate-identity', devProof.validator.validator_version === '1.1.0' && typeof devProof.validator.validator_release_hash === 'string', 'release candidate proof uses v1.1.0 identity and release hash')
 
 const publishedReleaseMode = (() => {
-  const originalMetadata = readFileSync(join(dir, 'release/validator-metadata.json'), 'utf8')
-  const originalChangelog = readFileSync(join(dir, 'CHANGELOG.md'), 'utf8')
-  const originalManifest = readFileSync(join(dir, 'release/RELEASE_MANIFEST.json'), 'utf8')
   try {
-    writeFileSync(join(dir, 'release/validator-metadata.json'), JSON.stringify({
-      validator_name: 'stategate',
-      validator_version: '1.1.0',
-      canonical_algorithm_version: 'merge-guard-v1',
-      proof_schema_version: '1.1.0',
-      compatibility_range: '>=1.0.0 <2.0.0',
-    }, null, 2) + '\n')
-    writeFileSync(join(dir, 'CHANGELOG.md'), originalChangelog.replace('## [Unreleased]', '## [Unreleased]\n\n## [1.1.0] - 2026-07-11'))
-    runGit(['tag', '-f', 'v1.1.0', 'HEAD'])
-    const build = runNode(['scripts/build-release-manifest.mjs'])
-    if (build.status !== 0) return build
+    const tree = runGit(['write-tree']).stdout.trim()
+    if (!tree) return { status: 1 }
+    const commit = runGit(['commit-tree', tree, '-p', 'HEAD', '-m', 'release content tree test']).stdout.trim()
+    if (!commit) return { status: 1 }
+    runGit(['tag', '-f', 'v1.1.0', commit])
     return runNode(['scripts/verify-release.mjs', '--published', '--tag=v1.1.0'])
   } finally {
     runGit(['tag', '-d', 'v1.1.0'])
-    writeFileSync(join(dir, 'release/validator-metadata.json'), originalMetadata)
-    writeFileSync(join(dir, 'CHANGELOG.md'), originalChangelog)
-    writeFileSync(join(dir, 'release/RELEASE_MANIFEST.json'), originalManifest)
   }
 })()
 assertCase('release-verification-published-checkout-mode', publishedReleaseMode.status === 0, 'published release verification accepts complete non-development release metadata when explicitly requested')
+
+const sameTreeDifferentCommitMode = (() => {
+  try {
+    const tree = runGit(['write-tree']).stdout.trim()
+    if (!tree) return { status: 1 }
+    const commit = runGit(['commit-tree', tree, '-p', 'HEAD', '-m', 'same release content tree test']).stdout.trim()
+    if (!commit) return { status: 1 }
+    runGit(['tag', '-f', 'v1.1.0', commit])
+    return runNode(['scripts/verify-release.mjs', '--published', '--tag=v1.1.0'])
+  } finally {
+    runGit(['tag', '-d', 'v1.1.0'])
+  }
+})()
+assertCase('release-verification-published-allows-same-tree-different-commit', sameTreeDifferentCommitMode.status === 0, 'published release verification accepts a different commit only when it has the same release content tree')
 
 const publishedMissingTag = (() => {
   const originalMetadata = readFileSync(join(dir, 'release/validator-metadata.json'), 'utf8')
@@ -400,7 +402,7 @@ const publishedMismatchedTag = (() => {
     writeFileSync(join(dir, 'release/RELEASE_MANIFEST.json'), originalManifest)
   }
 })()
-assertCase('release-verification-published-rejects-tag-source-mismatch', publishedMismatchedTag.status !== 0, 'published release verification rejects tag target mismatch with manifest source_commit')
+assertCase('release-verification-published-rejects-tag-source-mismatch', publishedMismatchedTag.status !== 0, 'published release verification rejects tag target mismatch with manifest source_tree')
 
 
 
@@ -410,7 +412,7 @@ assertCase('release-verification-rejects-malformed-metadata', malformedMetadata.
 const changedRuntime = withRestoredFile('check.mjs', original => `${original}\n// temporary release verification mutation\n`, () => runNode(['scripts/verify-release.mjs']))
 assertCase('release-verification-detects-runtime-hash-change', changedRuntime.status !== 0, 'changed runtime file invalidates release verification')
 
-const changelogMismatch = withRestoredFile('CHANGELOG.md', original => original.replace('## [Unreleased]', '## [Development Missing]'), () => runNode(['scripts/verify-release.mjs']))
+const changelogMismatch = withRestoredFile('CHANGELOG.md', original => original.replace('## [1.1.0]', '## [1.1.0-mismatch]'), () => runNode(['scripts/verify-release.mjs']))
 assertCase('release-verification-detects-changelog-mismatch', changelogMismatch.status !== 0, 'changelog/version mismatch fails release verification')
 
 writeFileSync(join(dir, 'release/RELEASE_MANIFEST.json'), manifestBefore)
