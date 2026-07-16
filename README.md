@@ -1,32 +1,178 @@
+<div align="center">
+
+![Repository Banner](4EE0D349-FB56-4D1E-B2D2-715CE0F95F8C.png)
+
+</div>
+
 # StateGate
 
-StateGate is a deterministic GitHub Action that validates the exact identity and policy state of a pull request before merge.
+StateGate is a deterministic GitHub Action that validates a pull request's identity, diff, attribution, and optional review policy before merge.
 
-It governs one object: the evaluated pull request state supplied to the action (`repo`, pull request number, head SHA, base SHA, actor, diff, and enabled policy evidence). It reports `VALID` or `NULL` and emits a proof artifact for the evaluated object.
+## Purpose
 
-Current stable validator version: **v1.1.1**. Recommended install reference: **`joselunasrt8-creator/stategate@v1`** for the latest compatible v1 release, or **`@v1.1.1`** for an exact release pin.
+CI can test repository contents without proving which pull request state was evaluated. A review can also become stale when the head commit changes.
 
-## Why install it?
+StateGate closes that boundary by evaluating one explicit pull request object and returning one of two results:
 
-Normal CI tests repository content, but it may not bind the exact reviewed pull request state that is about to become mergeable. StateGate addresses operational merge risks:
+- `VALID` — the supplied object and enabled policies are internally consistent.
+- `NULL` — required data is missing, malformed, stale, unavailable, or inconsistent.
 
-- a pull request may be mergeable without a preserved validation object;
-- review state may become stale after the reviewed head SHA changes;
-- agent-attributed work may require explicit repository policy;
-- the evaluated diff, head SHA, base SHA, attribution evidence, and optional review evidence need deterministic binding;
-- failed acquisition, missing evidence, stale evidence, malformed diffs, or mismatched replay hashes should fail closed.
+Every action or CLI evaluation writes `MERGE_GUARD_PROOF.json`, which binds the result to the evaluated head SHA, base SHA, canonical diff, attribution evidence, and enabled review policy. StateGate fails closed: incomplete evidence produces `NULL`, not an inferred success.
 
-StateGate turns that boundary into a check result:
+## Scope
+
+StateGate governs the state supplied to a single validation run. Its boundary includes:
+
+- repository and pull request identity;
+- head and base commit SHAs;
+- canonical pull request diff bytes and provenance;
+- actor and author-attribution evidence;
+- optional review evidence bound to the current head SHA;
+- optional expected hashes used for replay checks.
+
+The deterministic boundary begins after external evidence has been acquired. Network retrieval is not deterministic; the acquired values and their provenance are included in the validated object.
+
+## Overview
+
+StateGate is a dependency-free Node.js validator packaged as a composite GitHub Action.
 
 ```text
-VALID | NULL + MERGE_GUARD_PROOF.json
+GitHub pull request event
+          |
+          v
+ action.yml (input adapter)
+          |
+          v
+ check.mjs (evidence acquisition and output adapter)
+          |
+          v
+ guard.mjs (canonical validation decision)
+      /          \
+     v            v
+ VALID          NULL
+      \          /
+       v        v
+  MERGE_GUARD_PROOF.json
 ```
 
-## Five-minute install
+`guard.mjs` is the only decision surface. The action, CLI, tests, and library exports all enter `validateMergeGuard(input)`. Canonicalization and SHA-256 hashing live in `canonical.mjs`; attribution normalization lives in `attribution.mjs`.
 
-Use the canonical consumer workflow in [`examples/consumer-workflow.yml`](examples/consumer-workflow.yml) as the maintained workflow source. It exercises both `VALID` and bounded `NULL` behavior and aggregates the load-bearing check as `stategate`.
+See [Architecture](docs/ARCHITECTURE.md) for the execution-path audit and determinism boundary.
 
-For a pull-request workflow in your repository, the smallest live installation is:
+## Core Runtime
+
+```text
+explicit inputs
+    |
+    +-- supplied diff/review evidence ------------------+
+    |                                                   |
+    +-- or GitHub API acquisition                       |
+                                                        v
+                                              normalize evidence
+                                                        |
+                                                        v
+                                              validate identity
+                                                        |
+                                                        v
+                                            canonicalize and hash
+                                                        |
+                                                        v
+                                            evaluate enabled policy
+                                                        |
+                                                        v
+                                             compare replay hashes
+                                                        |
+                                                        v
+                                               VALID or NULL
+                                                        |
+                                                        v
+                                               emit exact proof
+```
+
+The proof is projected from the canonical decision. There is no separate proof-building decision path. A `NULL` result writes the same proof format with bounded `null_reasons` and exits non-zero.
+
+## Key Concepts
+
+| Term | Definition |
+| --- | --- |
+| **Validated object** | The normalized identity, diff, attribution, policy, and review fields evaluated in one run. |
+| **Canonical diff** | A normalized unified diff with deterministic line endings and terminal newline handling. |
+| **Canonical hash** | SHA-256 of the canonical validated payload; also exposed as `proof_hash`. |
+| **Diff hash** | SHA-256 of the canonical diff text. |
+| **Proof** | `MERGE_GUARD_PROOF.json`, the serialized record projected from the decision. |
+| **Replay guard** | An expected diff, proof, validated-object, or review-evidence hash that must match the current evaluation. |
+| **Attribution evidence** | Explicit and heuristic signals used to classify work as agent-authored, agent-assisted, human-authored, or unknown. |
+| **Review binding** | Optional validation that normalized approval evidence applies to the evaluated head SHA. |
+| **`VALID`** | All required inputs and enabled policies passed. It is not a statement about code quality or merge authority. |
+| **`NULL`** | Validation failed closed for one or more bounded reasons. |
+
+Compatibility identifiers such as `MERGE_GUARD_PROOF.json`, `MERGE_GUARD_*`, and `merge-guard-v1` are intentionally retained because they are part of the replay-sensitive v1 contract.
+
+## Responsibilities
+
+StateGate is responsible for:
+
+- validating required pull request identity fields;
+- checking acquired head and base SHAs against the requested state;
+- normalizing and hashing unified diff content deterministically;
+- classifying and binding attribution evidence;
+- enforcing explicit agent-authorship policy when enabled;
+- normalizing review evidence and rejecting stale approvals when review binding is enabled;
+- comparing optional replay hashes;
+- emitting GitHub Action outputs and a proof for the exact decision;
+- returning a non-zero status for `NULL`.
+
+## Non-Responsibilities
+
+StateGate does not:
+
+- determine whether code is correct, secure, tested, or deployable;
+- configure branch protection, repository rulesets, merge queues, or required checks;
+- grant merge authority or merge a pull request;
+- replace CODEOWNERS, required reviewers, CI, security scanning, or deployment controls;
+- establish that an asserted human or agent identity is authentic beyond the supplied evidence;
+- make GitHub API acquisition deterministic;
+- provide long-term artifact retention or external evidence storage.
+
+To make StateGate load-bearing, configure the repository to require the workflow check named `stategate` after the workflow has run at least once.
+
+## Features
+
+- Exact pull request identity validation.
+- Deterministic JSON and diff canonicalization.
+- Stable SHA-256 proof, diff, attribution, and review-evidence hashes.
+- Optional proof and validated-object replay checks.
+- Fail-closed GitHub diff acquisition with SHA continuity checks.
+- Explicit agent-attribution policy and ambiguity detection.
+- Optional approval thresholds bound to the current head SHA.
+- Fixture-based conformance and release-manifest verification.
+- No npm installation or compiled distribution step.
+
+## Repository Structure
+
+```text
+.
+├── action.yml            # Composite action contract and adapter
+├── check.mjs             # CLI, API acquisition, proof/output emission
+├── guard.mjs             # Canonical validation and proof projection
+├── canonical.mjs         # Canonicalization and SHA-256 helpers
+├── attribution.mjs       # Attribution evidence normalization
+├── test.mjs              # Conformance test harness
+├── fixtures/             # VALID, NULL, policy, and evidence cases
+├── examples/             # Consumer workflow example
+├── docs/                 # Architecture, operation, and release guides
+├── schemas/              # External adoption evidence schema
+├── scripts/              # Release and evidence verification tools
+└── release/              # Versioned manifests and validator metadata
+```
+
+The complete packaging map is maintained in [File Manifest](docs/FILE_MANIFEST.md).
+
+## Getting Started
+
+### Add the action
+
+Create `.github/workflows/stategate.yml` in the consuming repository:
 
 ```yaml
 name: StateGate
@@ -45,8 +191,9 @@ jobs:
     name: stategate
     runs-on: ubuntu-latest
     steps:
-      - uses: joselunasrt8-creator/stategate@v1
+      - name: Validate pull request state
         id: stategate
+        uses: joselunasrt8-creator/stategate@v1
         with:
           repo: ${{ github.repository }}
           pr-number: ${{ github.event.pull_request.number }}
@@ -55,170 +202,145 @@ jobs:
           actor: ${{ github.event.pull_request.user.login }}
 ```
 
-Required permissions:
+The five inputs shown above are required. When `pr-diff` is omitted, StateGate uses `github.token` to acquire the pull request object and diff, then verifies the acquired SHAs.
 
-- `contents: read` to allow repository context access;
-- `pull-requests: read` so StateGate can fetch pull request JSON, diff, and review evidence when those inputs are not supplied directly;
-- `actions: write` so the composite action can upload the proof artifact through `actions/upload-artifact@v4`.
+`contents: read` and `pull-requests: read` support evidence acquisition. `actions: write` allows `actions/upload-artifact@v4` to upload the proof artifact.
 
-Required inputs: `repo`, `pr-number`, `head-sha`, `base-sha`, and `actor`.
-
-Optional inputs include `pr-diff`, `github-token`, `author-kind`, `require-agent-authored`, `require-review-approval`, `minimum-approvals`, `review-evidence`, and the expected replay hashes. When `pr-diff` is omitted, the action fetches the pull request JSON and GitHub diff and requires the fetched `head.sha` and `base.sha` to match the evaluated inputs.
-
-Expected check name: `stategate`.
-
-Expected proof artifact: artifact `MERGE_GUARD_PROOF` containing `MERGE_GUARD_PROOF.json`.
-
-## Expected behavior
-
-| Result | Check behavior | What happens |
-| --- | --- | --- |
-| `VALID` | The `stategate` job succeeds. | A proof artifact is emitted; the pull request may proceed subject to the repository's other rules. |
-| `NULL` | The `stategate` job exits non-zero. | The pull request is blocked only if repository branch protection or rulesets require the `stategate` check; `null_reasons` surfaces the bounded failure reason. |
-
-StateGate does **not** configure GitHub branch protection, merge queues, or repository rulesets for you.
-
-## Make it load-bearing
-
-Installed is not the same as required.
-
-After the workflow has run at least once on a pull request, configure GitHub to require the check named `stategate`:
-
-1. Open the repository's **Settings**.
-2. Open **Rules** or **Branches** depending on the repository's GitHub configuration.
-3. Create or edit the branch protection rule or ruleset for the protected branch.
-4. Enable required status checks.
-5. Select the check named `stategate`.
-6. Save the rule and verify that a `NULL` StateGate run blocks merging.
-
-## Proof artifact
-
-The action uploads artifact `MERGE_GUARD_PROOF` with file `MERGE_GUARD_PROOF.json`.
-
-Key proof fields include:
-
-- `result`: `VALID` or `NULL`;
-- `proof_id`: `MERGE_GUARD-{pr_number}-{head_sha[:8]}`;
-- `canonical_hash` / `proof_hash`: deterministic hash of the canonical validated object;
-- `diff_hash`: deterministic hash of the canonical pull request diff;
-- `base_sha` and `head_sha`: evaluated pull request identity;
-- `attribution_*`: normalized attribution status, classification, and evidence hash;
-- `review_*` and `approval_count`: normalized review evidence when review binding is enabled;
-- `validator`: validator name, version, release hash, canonical algorithm version, and proof schema version;
-- `null_reasons`: bounded reasons when the result is `NULL`.
-
-The proof demonstrates which pull request object and policy evidence StateGate evaluated. It does not prove that the code is correct, safe, approved by the right CODEOWNERS, deployed, or finally merged. GitHub artifact retention is controlled by repository and organization retention settings, so download or archive proof artifacts when long-term evidence is required.
-
-## Policy capabilities
-
-Currently supported behavior includes:
-
-- exact pull request identity validation;
-- deterministic diff canonicalization and hashing;
-- proof/replay hash comparison;
-- optional review approval binding to the validated head SHA;
-- stale-review detection;
-- agent attribution evidence classification;
-- optional agent-authored and human-review policy gates;
-- fail-closed validation for missing, malformed, stale, mismatched, or ambiguous required evidence.
-
-For details, read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/VERSIONING.md`](docs/VERSIONING.md), and [`docs/FILE_MANIFEST.md`](docs/FILE_MANIFEST.md).
-
-## Real consumer example
-
-The canonical public reference consumer is `continuity-sandbox`.
-
-Frame it as a **reference consumer**, not independent market adoption. The sandbox demonstrates published-release installation, consumer workflow configuration, `VALID` and `NULL` behavior, proof artifact handling, and removal/degradation analysis. It does not by itself prove an independent trust boundary or independent dependency; that requires the evidence path in [`docs/EXTERNAL_ADOPTION_PROTOCOL.md`](docs/EXTERNAL_ADOPTION_PROTOCOL.md).
-
-## Adoption audit
-
-| Surface | Audience | Current purpose | Status | Required change |
-| --- | --- | --- | --- | --- |
-| `README.md` | FIRST_TIME_USER | Product landing page and install path. | User-facing hub. | Keep the front door focused on what it does, install, required check, proof, and routing. |
-| `action.yml` | FIRST_TIME_USER | Published GitHub Action metadata, inputs, outputs, artifact upload. | User-facing execution contract. | Leave runtime contract unchanged; preserve compatibility names. |
-| `examples/consumer-workflow.yml` | CONSUMER_OPERATOR | Canonical consumer verification workflow with VALID, NULL, and aggregate `stategate` jobs. | User-facing canonical example. | Use as maintained source instead of duplicating fixture logic in README. |
-| `docs/EXTERNAL_CONSUMER_CHECKLIST.md` | CONSUMER_OPERATOR | Bounded evaluation checklist. | User-facing operator aid. | Link from documentation map; not prerequisite to first install. |
-| `docs/UPGRADE_AND_ROLLBACK.md` | CONSUMER_OPERATOR | Pinning, upgrade, and rollback guidance. | Operator reference. | Link from documentation map. |
-| `docs/EXTERNAL_INSTALL_VERIFICATION.md` | CONSUMER_OPERATOR | External install evidence template. | Operator/evidence bridge. | Keep routed behind install/operate section. |
-| `docs/ARCHITECTURE.md` | PROJECT_MAINTAINER | Canonical validation flow and internals. | Maintainer reference. | Link for understanding, not install prerequisite. |
-| `docs/VERSIONING.md` | PROJECT_MAINTAINER | Version, algorithm, and proof schema policy. | Maintainer reference. | Keep as detailed reference. |
-| `docs/FILE_MANIFEST.md` | PROJECT_MAINTAINER | Package/source manifest and verification notes. | Maintainer reference. | Keep as detailed reference. |
-| `docs/RELEASE_CHECKLIST.md` | RELEASE_OPERATOR | Release procedure. | Internal release surface. | Keep out of first-time path. |
-| `docs/POST_RELEASE_VERIFICATION.md` | RELEASE_OPERATOR | Post-release checks and tag verification. | Internal/release surface. | Keep out of first-time path except documentation map. |
-| `docs/V1_1_0_RELEASE_HANDOFF.md` | RELEASE_OPERATOR | Historical v1.1.0 handoff. | Historical release record. | Treat as historical unless release operators need it. |
-| `docs/V1_1_1_RELEASE_HANDOFF.md` | RELEASE_OPERATOR | v1.1.1 release handoff. | Release record. | Keep release-operator scoped. |
-| `release/` | RELEASE_OPERATOR | Machine-readable release manifests and metadata. | Release infrastructure. | Do not make first-time users read it. |
-| `scripts/` | RELEASE_OPERATOR | Manifest, release, and schema validation scripts. | Maintainer/release tooling. | No first-time routing. |
-| `schemas/external-adoption-evidence.schema.json` | RESEARCH_EVIDENCE | Adoption evidence validation schema. | Research evidence infrastructure. | Keep behind evidence documentation. |
-| `fixtures/external-adoption/` | RESEARCH_EVIDENCE | Schema fixtures. | Research evidence tests. | Keep out of install path. |
-| `docs/templates/*` | RESEARCH_EVIDENCE | Operator feedback, evidence, and degradation templates. | Evidence templates. | Link only from evidence protocol/checklist. |
-
-## Documentation map
-
-Install and operate:
-
-- [Consumer workflow example](examples/consumer-workflow.yml)
-- [External consumer checklist](docs/EXTERNAL_CONSUMER_CHECKLIST.md)
-- [Upgrade and rollback](docs/UPGRADE_AND_ROLLBACK.md)
-- [External install verification](docs/EXTERNAL_INSTALL_VERIFICATION.md)
-
-Understand StateGate:
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [Versioning](docs/VERSIONING.md)
-- [File manifest](docs/FILE_MANIFEST.md)
-
-Release maintainers:
-
-- [Release checklist](docs/RELEASE_CHECKLIST.md)
-- [Post-release verification](docs/POST_RELEASE_VERIFICATION.md)
-- [v1.1.1 release handoff](docs/V1_1_1_RELEASE_HANDOFF.md)
-- [v1.1.0 historical release handoff](docs/V1_1_0_RELEASE_HANDOFF.md)
-
-External adoption evidence:
-
-- [External adoption protocol](docs/EXTERNAL_ADOPTION_PROTOCOL.md)
-- [Evidence schema](schemas/external-adoption-evidence.schema.json)
-- [Evidence template](docs/templates/EXTERNAL_ADOPTION_EVIDENCE.json)
-- [Operator feedback template](docs/templates/OPERATOR_FEEDBACK.md)
-- [Removal/degradation report template](docs/templates/REMOVAL_DEGRADATION_REPORT.md)
-
-## Terminology and compatibility
-
-StateGate is the product name and `joselunasrt8-creator/stategate@v1` is the recommended action reference.
-
-Migrating from Merge Guard:
-
-- Repository: `joselunasrt8-creator/continuity-merge-guard` → `joselunasrt8-creator/stategate`
-- Action reference: `uses: joselunasrt8-creator/continuity-merge-guard@v1` → `uses: joselunasrt8-creator/stategate@v1`
-- Recommended workflow/check name: `merge-guard` → `stategate`
-
-Compatibility-preserved names you may still encounter:
-
-| Name | Decision | Reason |
-| --- | --- | --- |
-| StateGate | RENAME_NOW | Product, README, Marketplace, and install language should use StateGate. |
-| legacy product name | HISTORICAL | Preserved only in migration notes or historical records. |
-| Continuity Merge Guard / `continuity-merge-guard` | HISTORICAL | Historical repository identity; document only as migration context. |
-| `MERGE_GUARD_*` environment variables | COMPATIBILITY_PRESERVE | Composite action adapter contract. |
-| `MERGE_GUARD_PROOF` artifact and `MERGE_GUARD_PROOF.json` file | COMPATIBILITY_PRESERVE | Proof consumers and historical artifacts depend on these names. |
-| `MERGE_GUARD-` proof ID prefix | COMPATIBILITY_PRESERVE | Proof identity contract. |
-| `merge-guard-v1` canonical algorithm version | COMPATIBILITY_PRESERVE | Replay-sensitive validation semantics identifier. |
-| `validateMergeGuard(input)` / `evaluate(input)` | COMPATIBILITY_PRESERVE | Library/runtime compatibility entrypoints. |
-| `v1.0.0` release references | RELEASE_SPECIFIC | Historical pre-StateGate provenance must not be rewritten. |
-| `v1.1.1` release references | RELEASE_SPECIFIC | Current stable release metadata. |
-
-## Release channels
-
-- `v1` — moving major-version tag for the latest compatible v1 release.
-- `v1.1.1` — current exact stable release.
-- full commit SHA — immutable source pin for maximum reproducibility.
-
-For reproducible installations, pin an exact semantic version or commit SHA:
+For reproducible installations, replace the moving `@v1` reference with an exact release or full commit SHA:
 
 ```yaml
 uses: joselunasrt8-creator/stategate@v1.1.1
+# or
 uses: joselunasrt8-creator/stategate@<full-commit-sha>
 ```
 
-The moving `v1` tag may advance to newer backward-compatible v1 releases. Exact semantic-version tags are intended to remain immutable under the repository release policy.
+### Verify the repository locally
+
+StateGate has no package-install step. With Node.js available:
+
+```bash
+node --check canonical.mjs
+node --check attribution.mjs
+node --check guard.mjs
+node --check check.mjs
+node test.mjs
+```
+
+See the maintained [consumer workflow](examples/consumer-workflow.yml) for deterministic `VALID` and bounded `NULL` examples.
+
+## Example Workflow
+
+A typical run follows this sequence:
+
+1. A pull request is opened or its head SHA changes.
+2. The workflow passes the pull request identity to StateGate.
+3. `check.mjs` acquires the current pull request JSON and diff unless exact evidence was supplied.
+4. `guard.mjs` validates the identity and hashes the canonical diff.
+5. If enabled, attribution and review policies are evaluated against normalized evidence.
+6. StateGate writes `MERGE_GUARD_PROOF.json` and exposes `result`, `proof_id`, `proof_hash`, `diff_hash`, and policy outputs.
+7. `VALID` exits successfully. `NULL` exits non-zero and reports bounded reason codes.
+8. GitHub uploads the file as artifact `MERGE_GUARD_PROOF`.
+9. Repository rules decide whether the `stategate` check is required for merge.
+
+Example result boundary:
+
+```text
+same validated object + same validator semantics
+                     |
+                     v
+          same canonical proof hash
+
+changed SHA, diff, provenance, or enabled evidence
+                     |
+                     v
+          changed hash or bounded NULL result
+```
+
+For approval binding, add explicit policy inputs:
+
+```yaml
+with:
+  # required identity inputs omitted here for brevity
+  require-review-approval: 'true'
+  minimum-approvals: '1'
+```
+
+When `review-evidence` is omitted, StateGate fetches reviews and binds normalized approvals to the evaluated head SHA.
+
+## Design Principles
+
+### One decision path
+
+All execution surfaces use `validateMergeGuard(input)`. Compatibility exports are aliases, not parallel implementations.
+
+### Exact-object validation
+
+The proof is derived from the decision object. The validated fields and emitted proof fields do not pass through independent policy logic.
+
+### Deterministic replay
+
+Canonical serialization, normalized evidence, explicit algorithm versions, and stable hashes allow equivalent inputs to be compared across runs. Exact release or commit pins also bind validator implementation provenance.
+
+### Fail-closed boundaries
+
+Missing, malformed, stale, ambiguous, or mismatched required evidence produces `NULL`. Acquisition errors do not silently reduce policy requirements.
+
+### Explicit policy
+
+Agent-authorship and review requirements are opt-in inputs. The runtime does not infer repository governance or modify GitHub settings.
+
+### Compatibility-aware versioning
+
+Replay-sensitive identifiers remain stable within the v1 compatibility range. See [Versioning](docs/VERSIONING.md) and [Upgrade and Rollback](docs/UPGRADE_AND_ROLLBACK.md).
+
+## Roadmap
+
+Near-term work is constrained to the existing architecture:
+
+- preserve deterministic v1 validation and replay semantics;
+- expand conformance fixtures for bounded edge cases;
+- strengthen release provenance and post-release verification;
+- improve external consumer evidence without treating sandbox use as independent adoption;
+- document compatibility-impacting changes before implementation.
+
+Roadmap items are directional and do not change the current action contract.
+
+## Contributing
+
+Contributions should preserve the single canonical validation path and keep behavioral changes explicit.
+
+1. Create a focused branch and limit the change to one bounded concern.
+2. Add or update fixtures for every decision-semantic change.
+3. Run syntax checks and `node test.mjs`.
+4. Document compatibility and replay impact when canonical fields, reason codes, hashes, or version identifiers change.
+5. Update release manifests only through the documented release process.
+6. Open a pull request that describes scope, preserved invariants, validation evidence, and remaining risks.
+
+Maintainers should also follow the [Release Checklist](docs/RELEASE_CHECKLIST.md) for release-bound changes.
+
+## Migration
+
+### Migrating from Merge Guard
+
+Update the prior action reference:
+
+```yaml
+# before
+uses: joselunasrt8-creator/continuity-merge-guard@v1
+
+# after
+uses: joselunasrt8-creator/stategate@v1
+```
+
+The `MERGE_GUARD_*` environment variables, `MERGE_GUARD_PROOF` artifact name, `MERGE_GUARD_PROOF.json` filename, `MERGE_GUARD-` proof ID prefix, and `merge-guard-v1` canonical algorithm identifier remain compatibility-preserved.
+
+## Documentation
+
+- **Install and operate:** [Consumer Checklist](docs/EXTERNAL_CONSUMER_CHECKLIST.md), [Install Verification](docs/EXTERNAL_INSTALL_VERIFICATION.md), [Upgrade and Rollback](docs/UPGRADE_AND_ROLLBACK.md)
+- **Understand the runtime:** [Architecture](docs/ARCHITECTURE.md), [Versioning](docs/VERSIONING.md), [File Manifest](docs/FILE_MANIFEST.md)
+- **Release:** [Release Checklist](docs/RELEASE_CHECKLIST.md), [Post-release Verification](docs/POST_RELEASE_VERIFICATION.md)
+- **Evidence:** [External Adoption Protocol](docs/EXTERNAL_ADOPTION_PROTOCOL.md), [Evidence Schema](schemas/external-adoption-evidence.schema.json)
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
