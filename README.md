@@ -6,7 +6,7 @@
 
 # StateGate
 
-StateGate is a deterministic GitHub Action that validates a pull request's identity, diff, attribution, and optional review policy before merge.
+StateGate is a deterministic GitHub Action that validates the exact pull request state before it becomes eligible to change repository state.
 
 ## Purpose
 
@@ -18,6 +18,92 @@ StateGate closes that boundary by evaluating one explicit pull request object an
 - `NULL` — required data is missing, malformed, stale, unavailable, or inconsistent.
 
 Every action or CLI evaluation writes `MERGE_GUARD_PROOF.json`, which binds the result to the evaluated head SHA, base SHA, canonical diff, attribution evidence, and enabled review policy. StateGate fails closed: incomplete evidence produces `NULL`, not an inferred success.
+
+## Getting Started
+
+### Add the action
+
+Create `.github/workflows/stategate.yml` in the consuming repository:
+
+```yaml
+name: StateGate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: write
+
+jobs:
+  stategate:
+    name: stategate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate pull request state
+        id: stategate
+        uses: joselunasrt8-creator/stategate@v1
+        with:
+          repo: ${{ github.repository }}
+          pr-number: ${{ github.event.pull_request.number }}
+          head-sha: ${{ github.event.pull_request.head.sha }}
+          base-sha: ${{ github.event.pull_request.base.sha }}
+          actor: ${{ github.event.pull_request.user.login }}
+```
+
+The five inputs shown above are required. When `pr-diff` is omitted, StateGate uses `github.token` to acquire the pull request object and diff, then verifies the acquired SHAs.
+
+`contents: read` and `pull-requests: read` support evidence acquisition. `actions: write` allows `actions/upload-artifact@v4` to upload the proof artifact.
+
+For reproducible installations, replace the moving `@v1` reference with an exact release or full commit SHA:
+
+```yaml
+uses: joselunasrt8-creator/stategate@v1.1.1
+# or
+uses: joselunasrt8-creator/stategate@<full-commit-sha>
+```
+
+### Verify the repository locally
+
+StateGate has no package-install step. With Node.js available:
+
+```bash
+node --check canonical.mjs
+node --check attribution.mjs
+node --check guard.mjs
+node --check check.mjs
+node test.mjs
+```
+
+See the maintained [consumer workflow](examples/consumer-workflow.yml) for deterministic `VALID` and bounded `NULL` examples.
+
+## Doesn't GitHub Already Solve This?
+
+GitHub already provides strong repository governance through branch protection, required checks, CODEOWNERS, merge queues, and repository rules.
+
+StateGate operates at a different boundary. Rather than governing the merge workflow, it deterministically validates the exact pull request state that is eligible to mutate repository state and emits replayable proof of that decision.
+
+<div align="center">
+
+![Doesn't GitHub Already Solve This?](A2C27EE7-BEE4-4584-9D59-6485C2359151.png)
+
+</div>
+
+## Every Merge Changes Repository State
+
+Every merge is a repository state transition.
+
+A pull request proposes a new repository state. Before that transition is allowed to occur, StateGate deterministically validates the complete evaluated pull request object—including identity, policy, attribution, evidence, and replay integrity—and returns either VALID or NULL.
+
+Only validated state transitions become eligible to mutate repository state.
+
+<div align="center">
+
+![Every Merge Changes Repository State](EB771D3D-B1B7-4255-92B6-9E80DA81C043.png)
+
+</div>
 
 ## Scope
 
@@ -167,66 +253,6 @@ To make StateGate load-bearing, configure the repository to require the workflow
 ```
 
 The complete packaging map is maintained in [File Manifest](docs/FILE_MANIFEST.md).
-
-## Getting Started
-
-### Add the action
-
-Create `.github/workflows/stategate.yml` in the consuming repository:
-
-```yaml
-name: StateGate
-
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-
-permissions:
-  contents: read
-  pull-requests: read
-  actions: write
-
-jobs:
-  stategate:
-    name: stategate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate pull request state
-        id: stategate
-        uses: joselunasrt8-creator/stategate@v1
-        with:
-          repo: ${{ github.repository }}
-          pr-number: ${{ github.event.pull_request.number }}
-          head-sha: ${{ github.event.pull_request.head.sha }}
-          base-sha: ${{ github.event.pull_request.base.sha }}
-          actor: ${{ github.event.pull_request.user.login }}
-```
-
-The five inputs shown above are required. When `pr-diff` is omitted, StateGate uses `github.token` to acquire the pull request object and diff, then verifies the acquired SHAs.
-
-`contents: read` and `pull-requests: read` support evidence acquisition. `actions: write` allows `actions/upload-artifact@v4` to upload the proof artifact.
-
-For reproducible installations, replace the moving `@v1` reference with an exact release or full commit SHA:
-
-```yaml
-uses: joselunasrt8-creator/stategate@v1.1.1
-# or
-uses: joselunasrt8-creator/stategate@<full-commit-sha>
-```
-
-### Verify the repository locally
-
-StateGate has no package-install step. With Node.js available:
-
-```bash
-node --check canonical.mjs
-node --check attribution.mjs
-node --check guard.mjs
-node --check check.mjs
-node test.mjs
-```
-
-See the maintained [consumer workflow](examples/consumer-workflow.yml) for deterministic `VALID` and bounded `NULL` examples.
 
 ## Example Workflow
 
