@@ -1,6 +1,9 @@
 <div align="center">
 
-![Repository Banner](4EE0D349-FB56-4D1E-B2D2-715CE0F95F8C.png)
+<img
+  src="./assets/images/01-hero.jpeg"
+  alt="StateGate — Deterministic validation for repository state transitions"
+  width="100%">
 
 </div>
 
@@ -85,14 +88,6 @@ GitHub already provides strong repository governance through branch protection, 
 
 StateGate operates at a different boundary. Rather than governing the merge workflow, it deterministically validates the exact pull request state that is eligible to mutate repository state and emits replayable proof of that decision.
 
-<div align="center">
-
-<img src="./A2C27EE7-BEE4-4584-9D59-6485C2359151.png"
-     alt="GitHub vs StateGate"
-     width="100%">
-
-</div>
-
 ## Every Merge Changes Repository State
 
 Every merge is a repository state transition.
@@ -101,13 +96,25 @@ A pull request proposes a new repository state. Before that transition is allowe
 
 Only validated state transitions become eligible to mutate repository state.
 
-<div align="center">
+## Every Merge Is a Repository State Transition
+<p align="center">
+  <img src="./assets/images/02-state-transition.png" width="100%">
+</p>
 
-<img src="./EB771D3D-B1B7-4255-92B6-9E80DA81C043.png"
-     alt="Every Merge Changes Repository State"
-     width="100%">
+## Deterministic Validation Pipeline
+<p align="center">
+  <img src="./assets/images/03-validation-pipeline.jpeg" width="100%">
+</p>
 
-</div>
+## When Does a Transition Become Eligible?
+<p align="center">
+  <img src="./assets/images/04-transition-eligibility.jpeg" width="100%">
+</p>
+
+## What Does StateGate Produce?
+<p align="center">
+  <img src="./assets/images/05-validation-evidence.jpeg" width="100%">
+</p>
 
 ## Scope
 
