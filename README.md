@@ -314,6 +314,183 @@ with:
 
 When `review-evidence` is omitted, StateGate fetches reviews and binds normalized approvals to the evaluated head SHA.
 
+## End-to-End Validation Example
+
+This worked example connects the lifecycle described in [Every Merge Changes Repository State](#every-merge-changes-repository-state) to the decision boundary in [Example Workflow](#example-workflow). It uses the existing action contract from [Getting Started](#getting-started) and the terms from [Key Concepts](#key-concepts), rather than restating those sections.
+
+> **Example provenance:** `acme/payments-api`, pull request `#482`, both commit SHAs, and the patch below are illustrative. The proof and replay hashes were generated deterministically from the displayed inputs with this checkout; they are not hashes of an actual GitHub pull request. A release or full-commit pin should replace the example validator provenance in an operational record.
+
+### Pull request and policy inputs
+
+A payments team proposes this patch at head `8b1f3e86a7db2f98858b7c7654b0a9d4b14a2e61`, based on `61af0c2b7733d4cfeb150d1c8c6cbb281f387dca`:
+
+```diff
+diff --git a/docs/deploy.md b/docs/deploy.md
+index 2cbb7ad..93d8c31 100644
+--- a/docs/deploy.md
++++ b/docs/deploy.md
+@@ -8,3 +8,4 @@ Deployments require approval.
+ - Run tests.
+ - Obtain approval.
++- Record the release digest.
+```
+
+The workflow supplies the following validation boundary:
+
+| Input group | Values |
+| --- | --- |
+| Repository identity | `repo=acme/payments-api`, `pr_number=482`, `actor=mira-dev` |
+| Commit identity | `head_sha=8b1f3e86a7db2f98858b7c7654b0a9d4b14a2e61`, `base_sha=61af0c2b7733d4cfeb150d1c8c6cbb281f387dca` |
+| Diff evidence | The unified diff above, acquired as `github_pull_request_diff_api` |
+| Attribution policy | `author_kind=human`, `require_agent_authored=false` |
+| Review policy | `require_review_approval=true`, `minimum_approvals=1` |
+| Review evidence | `release-owner` approved the evaluated head at `2026-07-17T10:15:00Z` |
+| Replay guards | On the first run, none; on replay, the recorded diff and canonical hashes |
+
+This establishes the complete path:
+
+```text
+Pull Request
+    ↓
+Repository State Transition (proposed)
+    ↓
+StateGate Validation (identity + diff + attribution + review + replay guards)
+    ↓
+VALID / NULL
+    ↓
+MERGE_GUARD_PROOF.json
+    ↓
+Repository State Change (eligible after VALID) / Preserved State (NULL)
+```
+
+### Successful `VALID` transition
+
+StateGate canonicalizes the patch, binds the policy and evidence to the repository and commit identity, and obtains this deterministic decision:
+
+```text
+result=VALID
+proof_hash=cbe90c82f100440c1586c2942d853db0dbe315b8cea3c1df0e42d61558da1c2a
+diff_hash=sha256:bffd81997a1b858e2781957f841beddd968fc2c7e921ea839ab8d3af6ce5b995
+null_reasons=[]
+```
+
+`VALID` makes this exact proposed transition *eligible* for the repository's merge controls; it does not merge the pull request or grant authority. That boundary is described in [Non-Responsibilities](#non-responsibilities).
+
+### Example `MERGE_GUARD_PROOF.json`
+
+The resulting evidence artifact is:
+
+```json
+{
+  "proof_id": "MERGE_GUARD-482-8b1f3e86",
+  "repo": "acme/payments-api",
+  "validator": {
+    "validator_name": "stategate",
+    "validator_version": "1.1.1",
+    "validator_commit": "unknown",
+    "validator_release_hash": "sha256:2f660e02b8774949343a628665835d347bb0b9ac9165b4eb8bcf7d168f863fc5",
+    "canonical_algorithm_version": "merge-guard-v1",
+    "proof_schema_version": "1.1.0",
+    "compatibility_range": ">=1.0.0 <2.0.0"
+  },
+  "canonical_payload": {
+    "repo": "acme/payments-api",
+    "pr_number": "482",
+    "head_sha": "8b1f3e86a7db2f98858b7c7654b0a9d4b14a2e61",
+    "base_sha": "61af0c2b7733d4cfeb150d1c8c6cbb281f387dca",
+    "actor": "mira-dev",
+    "diff_hash": "sha256:bffd81997a1b858e2781957f841beddd968fc2c7e921ea839ab8d3af6ce5b995",
+    "diff_source": "github_pull_request_diff_api",
+    "author_kind": "human",
+    "require_agent_authored": "false",
+    "attribution_status": "identity_missing",
+    "attribution_classification": "UNKNOWN",
+    "attribution_evidence_hash": "8edf2bd579b8879500805768d97843865a763c821757ced18421221fa275fbd8",
+    "review_policy": {
+      "review_required": true,
+      "minimum_approvals": 1
+    },
+    "review_result": {
+      "review_status": "approved",
+      "approval_count": 1,
+      "review_head_sha": "8b1f3e86a7db2f98858b7c7654b0a9d4b14a2e61",
+      "review_evidence_hash": "sha256:ac84ad8005fb4ae6e5cbb2af00d1d2903e3f7e732f68f6ca199dd973aae8f3c4"
+    }
+  },
+  "canonical_hash": "cbe90c82f100440c1586c2942d853db0dbe315b8cea3c1df0e42d61558da1c2a",
+  "diff_hash": "sha256:bffd81997a1b858e2781957f841beddd968fc2c7e921ea839ab8d3af6ce5b995",
+  "diff_source": "github_pull_request_diff_api",
+  "diff_canonicalization": "line_endings_lf_terminal_lf_preserve_order_and_patch_text",
+  "result": "VALID",
+  "missing_fields": [],
+  "invalid_fields": [],
+  "author_kind": "human",
+  "require_agent_authored": "false",
+  "agent_author_required": false,
+  "null_reasons": [],
+  "actor_attribution": {
+    "actor_kind": "unknown",
+    "actor_id": "mira-dev",
+    "operator_id": null,
+    "attribution_source": "pr_metadata",
+    "confidence": "observed",
+    "evidence": [
+      {
+        "signal_id": "github_actor_or_bot_account",
+        "tier": "supporting",
+        "value": "mira-dev",
+        "declares": null
+      }
+    ]
+  },
+  "attribution_classification": "UNKNOWN",
+  "attribution_status": "identity_missing",
+  "attribution_evidence_hash": "8edf2bd579b8879500805768d97843865a763c821757ced18421221fa275fbd8",
+  "review_required": true,
+  "minimum_approvals": 1,
+  "approval_count": 1,
+  "review_evidence_hash": "sha256:ac84ad8005fb4ae6e5cbb2af00d1d2903e3f7e732f68f6ca199dd973aae8f3c4",
+  "review_head_sha": "8b1f3e86a7db2f98858b7c7654b0a9d4b14a2e61",
+  "review_status": "approved",
+  "record_type": "MERGE_GUARD_PROOF"
+}
+```
+
+Major fields have these roles:
+
+- `proof_id` is a readable PR/head identifier; `repo` binds repository identity.
+- `validator` records implementation, release, canonical algorithm, proof format, and compatibility provenance. `validator_commit` is `unknown` only because this local demonstration was not given a release commit; an operational run should be pinned as explained in [Getting Started](#getting-started).
+- `canonical_payload` is the normalized object whose serialization is hashed. It binds PR identity, head and base SHAs, diff provenance, attribution, enabled policy, and normalized review result.
+- `canonical_hash` (also exposed as `proof_hash`) identifies that canonical validated object; `diff_hash` independently identifies canonical patch bytes.
+- `diff_source` and `diff_canonicalization` make acquisition provenance and normalization rules explicit.
+- `result`, `missing_fields`, `invalid_fields`, and `null_reasons` contain the deterministic decision and bounded failure details.
+- `actor_attribution` and the attribution fields preserve the signals and their classification. `identity_missing` is permitted here because agent authorship is not required.
+- The review fields show that one approval was required, observed, and bound to the exact evaluated head SHA.
+- `record_type` is the compatibility-preserved artifact discriminator discussed in [Migration](#migration).
+
+### Replay verification and rejected `NULL` transition
+
+A verifier re-runs the same validator version with the archived inputs and sets both `expected_diff_hash` and `expected_proof_hash` (or `expected_validated_object_hash`) from the artifact. Unchanged inputs reproduce the displayed hashes and return `VALID`.
+
+Suppose the patch is then changed to `Record and sign the release digest.` while the old replay hashes are retained. The new canonical values are deterministic, but they no longer identify the approved object:
+
+```json
+{
+  "result": "NULL",
+  "canonical_hash": "1f36b23b955e6470ea9aea901105af8d342e6615e371c66da4bb657123790fda",
+  "diff_hash": "sha256:30c7abd64e936fb4aa1a6d4f3738906cd66b779984476e1b660cdda91bb7a1db",
+  "null_reasons": [
+    "DIFF_HASH_MISMATCH",
+    "PROOF_HASH_MISMATCH",
+    "VALIDATED_OBJECT_MUTATION"
+  ]
+}
+```
+
+These replacement hashes were also generated from the illustrative changed patch, not copied from a live pull request. The mismatch is not repaired by inference: StateGate writes the `NULL` proof and exits non-zero. Because StateGate itself never merges and a required `stategate` check cannot pass on `NULL`, the proposed transition never becomes eligible; the base branch continues to point to its prior state. In other words, `NULL` preserves repository state by withholding transition eligibility, not by attempting a compensating mutation. See [Fail-closed boundaries](#fail-closed-boundaries) and [Scope](#scope) for the existing boundary definitions.
+
+The artifact plus the exact validator pin, patch/evidence inputs, and expected hashes form the replay proof. Equivalent normalized inputs reproduce the decision; a changed SHA, patch, provenance, policy, or bound evidence changes the canonical identity or returns a bounded `NULL`, as summarized in [Deterministic replay](#deterministic-replay).
+
 ## Design Principles
 
 ### One decision path
