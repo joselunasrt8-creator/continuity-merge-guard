@@ -318,7 +318,7 @@ When `review-evidence` is omitted, StateGate fetches reviews and binds normalize
 
 This worked example connects the lifecycle described in [Every Merge Changes Repository State](#every-merge-changes-repository-state) to the decision boundary in [Example Workflow](#example-workflow). It uses the existing action contract from [Getting Started](#getting-started) and the terms from [Key Concepts](#key-concepts), rather than restating those sections.
 
-> **Example provenance:** `acme/payments-api`, pull request `#482`, both commit SHAs, and the patch below are illustrative. The proof and replay hashes were generated deterministically from the displayed inputs with this checkout; they are not hashes of an actual GitHub pull request. A release or full-commit pin should replace the example validator provenance in an operational record.
+> **Example provenance:** `acme/payments-api`, pull request `#482`, both commit SHAs, and the patch below are illustrative. The proof and replay hashes were generated deterministically from the displayed inputs with this checkout; they are not hashes of an actual GitHub pull request. An operational record should retain the action's exact release or full-commit pin alongside the proof. That workflow pin does not by itself populate `validator_commit`; with the checked-in release manifest structure, the emitted value remains `unknown` when no `source_commit` is present.
 
 ### Pull request and policy inputs
 
@@ -329,7 +329,7 @@ diff --git a/docs/deploy.md b/docs/deploy.md
 index 2cbb7ad..93d8c31 100644
 --- a/docs/deploy.md
 +++ b/docs/deploy.md
-@@ -8,3 +8,4 @@ Deployments require approval.
+@@ -8,2 +8,3 @@ Deployments require approval.
  - Run tests.
  - Obtain approval.
 +- Record the release digest.
@@ -369,8 +369,8 @@ StateGate canonicalizes the patch, binds the policy and evidence to the reposito
 
 ```text
 result=VALID
-proof_hash=cbe90c82f100440c1586c2942d853db0dbe315b8cea3c1df0e42d61558da1c2a
-diff_hash=sha256:bffd81997a1b858e2781957f841beddd968fc2c7e921ea839ab8d3af6ce5b995
+proof_hash=7fd77993a7d04bd04b8a528738ebbd0247000cc8b93f10b92e9f984c4bff2996
+diff_hash=sha256:a1610ebf7fc2c107765b9c76086f14cd1258e10b1314943e22c73ef6259c1ab2
 null_reasons=[]
 ```
 
@@ -399,7 +399,7 @@ The resulting evidence artifact is:
     "head_sha": "8b1f3e86a7db2f98858b7c7654b0a9d4b14a2e61",
     "base_sha": "61af0c2b7733d4cfeb150d1c8c6cbb281f387dca",
     "actor": "mira-dev",
-    "diff_hash": "sha256:bffd81997a1b858e2781957f841beddd968fc2c7e921ea839ab8d3af6ce5b995",
+    "diff_hash": "sha256:a1610ebf7fc2c107765b9c76086f14cd1258e10b1314943e22c73ef6259c1ab2",
     "diff_source": "github_pull_request_diff_api",
     "author_kind": "human",
     "require_agent_authored": "false",
@@ -417,8 +417,8 @@ The resulting evidence artifact is:
       "review_evidence_hash": "sha256:ac84ad8005fb4ae6e5cbb2af00d1d2903e3f7e732f68f6ca199dd973aae8f3c4"
     }
   },
-  "canonical_hash": "cbe90c82f100440c1586c2942d853db0dbe315b8cea3c1df0e42d61558da1c2a",
-  "diff_hash": "sha256:bffd81997a1b858e2781957f841beddd968fc2c7e921ea839ab8d3af6ce5b995",
+  "canonical_hash": "7fd77993a7d04bd04b8a528738ebbd0247000cc8b93f10b92e9f984c4bff2996",
+  "diff_hash": "sha256:a1610ebf7fc2c107765b9c76086f14cd1258e10b1314943e22c73ef6259c1ab2",
   "diff_source": "github_pull_request_diff_api",
   "diff_canonicalization": "line_endings_lf_terminal_lf_preserve_order_and_patch_text",
   "result": "VALID",
@@ -459,8 +459,8 @@ The resulting evidence artifact is:
 Major fields have these roles:
 
 - `proof_id` is a readable PR/head identifier; `repo` binds repository identity.
-- `validator` records implementation, release, canonical algorithm, proof format, and compatibility provenance. `validator_commit` is `unknown` only because this local demonstration was not given a release commit; an operational run should be pinned as explained in [Getting Started](#getting-started).
-- `canonical_payload` is the normalized object whose serialization is hashed. It binds PR identity, head and base SHAs, diff provenance, attribution, enabled policy, and normalized review result.
+- `validator` records implementation, release, canonical algorithm, proof format, and compatibility provenance. The displayed `validator_commit` is `unknown` because the checked-in release manifest has no `source_commit`; selecting an action release or full-commit pin does not populate that field under the current manifest structure. Retain that pin alongside the proof for operational provenance.
+- `canonical_payload` is the deterministically serialized object whose serialization is hashed. It binds the supplied PR identity, head and base SHAs, diff provenance, attribution, enabled policy, and normalized review result.
 - `canonical_hash` (also exposed as `proof_hash`) identifies that canonical validated object; `diff_hash` independently identifies canonical patch bytes.
 - `diff_source` and `diff_canonicalization` make acquisition provenance and normalization rules explicit.
 - `result`, `missing_fields`, `invalid_fields`, and `null_reasons` contain the deterministic decision and bounded failure details.
@@ -470,26 +470,33 @@ Major fields have these roles:
 
 ### Replay verification and rejected `NULL` transition
 
-A verifier re-runs the same validator version with the archived inputs and sets both `expected_diff_hash` and `expected_proof_hash` (or `expected_validated_object_hash`) from the artifact. Unchanged inputs reproduce the displayed hashes and return `VALID`.
+A verifier re-runs the same validator version with the archived inputs and sets both `expected_diff_hash` and `expected_proof_hash` (or `expected_validated_object_hash`) from the artifact. Unchanged archived inputs reproduce the displayed hashes and return `VALID`.
 
-Suppose the patch is then changed to `Record and sign the release digest.` while the old replay hashes are retained. The new canonical values are deterministic, but they no longer identify the approved object:
+Suppose pull request `#482` is synchronized with a new commit, `c42dff7e87b2d9200a82ad9c85511b3a83da7f22`, whose patch changes the added line to `Record and sign the release digest.`. The old replay hashes and the old approval remain archived. This is a real pull-request update model: the new head changes the proposed object, while the approval is still bound to the former head. The new canonical values are deterministic, but they no longer identify the formerly approved object:
 
 ```json
 {
   "result": "NULL",
-  "canonical_hash": "1f36b23b955e6470ea9aea901105af8d342e6615e371c66da4bb657123790fda",
-  "diff_hash": "sha256:30c7abd64e936fb4aa1a6d4f3738906cd66b779984476e1b660cdda91bb7a1db",
+  "canonical_hash": "04a92c8f1c86b54e6df31743eaf5e25b40bd9b0db8d3c5ff579d68571fa07e75",
+  "diff_hash": "sha256:630b9f9673ef78623c843626b847627eb55f7418495aa8d76fea99e3838bd40f",
   "null_reasons": [
     "DIFF_HASH_MISMATCH",
+    "REVIEW_HEAD_SHA_MISMATCH",
     "PROOF_HASH_MISMATCH",
     "VALIDATED_OBJECT_MUTATION"
   ]
 }
 ```
 
-These replacement hashes were also generated from the illustrative changed patch, not copied from a live pull request. The mismatch is not repaired by inference: StateGate writes the `NULL` proof and exits non-zero. Because StateGate itself never merges and a required `stategate` check cannot pass on `NULL`, the proposed transition never becomes eligible; the base branch continues to point to its prior state. In other words, `NULL` preserves repository state by withholding transition eligibility, not by attempting a compensating mutation. See [Fail-closed boundaries](#fail-closed-boundaries) and [Scope](#scope) for the existing boundary definitions.
+These replacement hashes were also generated from the illustrative synchronized update, not copied from a live pull request. The mismatch and stale approval are not repaired by inference: StateGate writes the `NULL` proof and exits non-zero. Because StateGate itself never merges and a required `stategate` check cannot pass on `NULL`, the proposed transition never becomes eligible; the base branch continues to point to its prior state. In other words, `NULL` preserves repository state by withholding transition eligibility, not by attempting a compensating mutation. See [Fail-closed boundaries](#fail-closed-boundaries) and [Scope](#scope) for the existing boundary definitions.
 
-The artifact plus the exact validator pin, patch/evidence inputs, and expected hashes form the replay proof. Equivalent normalized inputs reproduce the decision; a changed SHA, patch, provenance, policy, or bound evidence changes the canonical identity or returns a bounded `NULL`, as summarized in [Deterministic replay](#deterministic-replay).
+The artifact plus the exact validator pin, patch/evidence inputs, and expected hashes form the replay proof. Replaying the same supplied values reproduces the decision. The runtime normalizes diff line endings and terminal newline handling, policy strings, attribution evidence, and review evidence; canonical JSON serialization also fixes object-key order. Required identity fields such as `repo`, `pr_number`, `head_sha`, `base_sha`, and `actor` remain supplied values, so differently formatted identities are not claimed to be equivalent. A changed SHA, patch, provenance, policy, or bound evidence changes the canonical identity or returns a bounded `NULL`, as summarized in [Deterministic replay](#deterministic-replay).
+
+### Lessons learned
+
+- A displayed unified diff is evidence only when its hunk counts are valid and its bytes are the ones hashed.
+- A synchronized pull-request update changes the head SHA and invalidates approval binding until current-head evidence is supplied.
+- Replay claims must distinguish the fields normalized by the runtime from raw identity values preserved in the canonical payload.
 
 ## Design Principles
 
